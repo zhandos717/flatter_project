@@ -1,69 +1,39 @@
 import 'package:flutter/material.dart';
-
-const Color darkBlue = Color.fromARGB(255, 18, 32, 47);
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        body: Center(
-          child: MyWidget(),
+        appBar: AppBar(
+          title: Text('OpenStreetMap Example'),
         ),
+        body: MapWidget(),
       ),
     );
   }
 }
 
-class MyWidget extends StatelessWidget {
+class MapWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Flexible(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Text('Is it Astana ?', style: TextStyle(fontSize: 32)),
-            Text('Kazakhstan'),
-          ],
-        ),
+    return FlutterMap(
+      options: MapOptions(
+        center: LatLng(51.10, 71.50), // Координаты центра карты
+        zoom: 5.0, // Уровень масштабирования карты
       ),
-      Flexible(
-        flex: 4,
-        child: SizedBox.expand(
-          child: Container(
-            child: Padding(
-              padding: EdgeInsets.all(100.5),
-              child: Card(
-                elevation: 12.0,
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  child: Text('Kazakhstan'),
-                ),
-              ),
-            ),
-          ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
         ),
-      ),
-      Flexible(
-        child: Center(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              TextButton(child: const Text('True'), onPressed: () {}),
-              TextButton(child: const Text('Yes'), onPressed: () {}),
-            ],
-          ),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 }
