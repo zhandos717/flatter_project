@@ -1,4 +1,5 @@
 import 'package:finance_app/providers/settings_provider.dart';
+import 'package:finance_app/services/api_service.dart';
 import 'package:finance_app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,7 +16,7 @@ void main() {
 
   initializeDateFormatting('ru', null);
   // Установка окружения для API
-  EnvironmentConfig.setEnvironment(Environment.local);
+  EnvironmentConfig.setEnvironment(Environment.dev);
 
   runApp(MyApp());
 }
@@ -28,7 +29,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => WalletProvider()),
-        ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => CategoryProvider(apiService: ApiService())),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: Consumer<SettingsProvider>(

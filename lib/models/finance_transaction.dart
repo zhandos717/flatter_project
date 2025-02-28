@@ -1,9 +1,11 @@
+import 'package:finance_app/models/category.dart';
+
 class FinanceTransaction {
   final String id;
   final String title;
   final double amount;
   final DateTime date;
-  final String category;
+  final Category category;
   final TransactionType type;
   final String? note;
 
@@ -40,9 +42,10 @@ class FinanceTransaction {
       category: map['category'] is Map
           ? map['category']['name'] ?? 'Без категории'
           : map['category'] ?? 'Без категории',
-      type: map['type'] == '1' || map['type'] == 1 || map['type_def'] == 'income'
-          ? TransactionType.income
-          : TransactionType.expense,
+      type:
+          map['type'] == '1' || map['type'] == 1 || map['type_def'] == 'income'
+              ? TransactionType.income
+              : TransactionType.expense,
       note: map['note'] ?? map['comment'],
     );
   }

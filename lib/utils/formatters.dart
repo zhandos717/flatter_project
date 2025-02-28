@@ -1,16 +1,16 @@
 import 'package:intl/intl.dart';
 
 class CurrencyFormatter {
-  static String format(double amount) {
+  static String format(amount) {
     return NumberFormat.currency(
-      symbol: '\$',
+      symbol: '\₸ ',
       decimalDigits: 2,
     ).format(amount);
   }
 
   static String formatCompact(double amount) {
     return NumberFormat.compactCurrency(
-      symbol: '\$',
+      symbol: '\₸',
       decimalDigits: 0,
     ).format(amount);
   }

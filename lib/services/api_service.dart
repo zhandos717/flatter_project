@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:finance_app/models/category.dart';
 import 'package:http/http.dart' as http;
 import '../models/finance_transaction.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,8 @@ class ApiService {
   }
 
   // Вспомогательный метод для логирования запросов
-  void _logRequest(String method, String url, Map<String, String> headers, [dynamic body]) {
+  void _logRequest(String method, String url, Map<String, String> headers,
+      [dynamic body]) {
     if (EnvironmentConfig.enableLogging) {
       print('🌐 API Request: $method $url');
       print('🔑 Headers: $headers');
@@ -40,7 +42,8 @@ class ApiService {
   }
 
   // Авторизация пользователя
-  Future<Map<String, dynamic>> login(String phoneNumber, String password) async {
+  Future<Map<String, dynamic>> login(
+      String phoneNumber, String password) async {
     try {
       final url = '$baseUrl/v1/login';
       final headers = {
@@ -55,11 +58,13 @@ class ApiService {
 
       _logRequest('POST', url, headers, body);
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: body,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -90,27 +95,19 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка сервера'
-      };
+      return {'success': false, 'message': 'Ошибка сервера'};
     } catch (e) {
       print('Login error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
   // Регистрация пользователя
-  Future<Map<String, dynamic>> register(String name, String phoneNumber, String password) async {
+  Future<Map<String, dynamic>> register(
+      String name, String phoneNumber, String password) async {
     try {
       // По спецификации API, метод регистрации не указан
       // Имплементируйте здесь в соответствии с вашим API
@@ -120,10 +117,7 @@ class ApiService {
       };
     } catch (e) {
       print('Registration error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -135,10 +129,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -154,7 +150,8 @@ class ApiService {
   }
 
   // Обновление информации пользователя
-  Future<Map<String, dynamic>> updateUserInfo(Map<String, dynamic> userData) async {
+  Future<Map<String, dynamic>> updateUserInfo(
+      Map<String, dynamic> userData) async {
     try {
       final headers = await _getHeaders();
       final url = '$baseUrl/v1/user';
@@ -163,20 +160,19 @@ class ApiService {
 
       _logRequest('PUT', url, headers, body);
 
-      final response = await http.put(
-        Uri.parse(url),
-        headers: headers,
-        body: body,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .put(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'user': data['data']
-        };
+        return {'success': true, 'user': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -187,10 +183,7 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
       return {
@@ -199,15 +192,13 @@ class ApiService {
       };
     } catch (e) {
       print('Update user info error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
   // Изменение пароля пользователя
-  Future<Map<String, dynamic>> changePassword(String oldPassword, String newPassword) async {
+  Future<Map<String, dynamic>> changePassword(
+      String oldPassword, String newPassword) async {
     try {
       final headers = await _getHeaders();
       final url = '$baseUrl/v1/user/password';
@@ -219,20 +210,19 @@ class ApiService {
 
       _logRequest('POST', url, headers, body);
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: body,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': data['data']['message']
-        };
+        return {'success': true, 'message': data['data']['message']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -243,22 +233,13 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка изменения пароля'
-      };
+      return {'success': false, 'message': 'Ошибка изменения пароля'};
     } catch (e) {
       print('Change password error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -277,7 +258,7 @@ class ApiService {
   }
 
   // Получение категорий
-  Future<List<Map<String, dynamic>>> getCategories({int? type}) async {
+  Future<List<Map<String, dynamic>>> getCategories(int? type) async {
     try {
       final headers = await _getHeaders();
       final url = type != null
@@ -286,10 +267,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -299,7 +282,9 @@ class ApiService {
           return data.map((item) => item as Map<String, dynamic>).toList();
         } else if (data is Map && data.containsKey('data')) {
           final List<dynamic> categories = data['data'];
-          return categories.map((item) => item as Map<String, dynamic>).toList();
+          return categories
+              .map((item) => item as Map<String, dynamic>)
+              .toList();
         }
       }
       return [];
@@ -310,7 +295,8 @@ class ApiService {
   }
 
   // Создание категории
-  Future<Map<String, dynamic>> createCategory(String name, int type, int icon, String color) async {
+  Future<Map<String, dynamic>> createCategory(
+      String name, int type, int icon, String color) async {
     try {
       final headers = await _getHeaders();
       final url = '$baseUrl/v1/categories';
@@ -324,20 +310,19 @@ class ApiService {
 
       _logRequest('POST', url, headers, body);
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: body,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'category': data['data']
-        };
+        return {'success': true, 'category': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -348,22 +333,81 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка создания категории'
-      };
+      return {'success': false, 'message': 'Ошибка создания категории'};
     } catch (e) {
       print('Create category error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCategory(Category category) async {
+    try {
+      final headers = await _getHeaders();
+      final url = '$baseUrl/v1/categories/${category.id}';
+
+      final body = jsonEncode({
+        'name': category.name,
+        'type': category.type,
+        'icon': category.icon,
+        'color': category.color,
+      });
+
+      _logRequest('PUT', url, headers, body);
+
+      final response = await http
+          .put(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
+
+      _logResponse(response);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'category': data['data']};
+      } else if (response.statusCode == 422) {
+        final data = jsonDecode(response.body);
+        String errorMessage = 'Ошибка валидации';
+        if (data['errors'] != null) {
+          List<String> errors = [];
+          (data['errors'] as Map<String, dynamic>).forEach((key, value) {
+            errors.add((value as List).join('. '));
+          });
+          errorMessage = errors.join('\n');
+        }
+        return {'success': false, 'message': errorMessage};
+      }
+
+      return {'success': false, 'message': 'Ошибка создания категории'};
+    } catch (e) {
+      print('Create category error: $e');
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteCategory(category) async {
+    try {
+      final headers = await _getHeaders();
+      final url = '$baseUrl/v1/categories/$category';
+
+      _logRequest('DELETE', url, headers);
+
+      final response = await http
+          .delete(Uri.parse(url), headers: headers)
+          .timeout(EnvironmentConfig.apiTimeout);
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      }
+      return {'success': false, 'message': 'Ошибка при удалении категории'};
+    } catch (e) {
+      print('DELETE category error: $e');
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -375,17 +419,20 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is Map && data.containsKey('data')) {
-          final List<dynamic> wallets = data['data'] is List ? data['data'] : [data['data']];
+          final List<dynamic> wallets =
+              data['data'] is List ? data['data'] : [data['data']];
           return wallets.map((item) => item as Map<String, dynamic>).toList();
         }
       }
@@ -397,7 +444,8 @@ class ApiService {
   }
 
   // Создание кошелька
-  Future<Map<String, dynamic>> createWallet(String name, int type, {int? desiredBalance, String? color, int? icon}) async {
+  Future<Map<String, dynamic>> createWallet(String name, int type,
+      {int? desiredBalance, String? color, int? icon}) async {
     try {
       final headers = await _getHeaders();
       headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
@@ -427,17 +475,15 @@ class ApiService {
 
       _logRequest('POST', url, headers, request.fields);
 
-      final streamedResponse = await request.send().timeout(EnvironmentConfig.apiTimeout);
+      final streamedResponse =
+          await request.send().timeout(EnvironmentConfig.apiTimeout);
       final response = await http.Response.fromStream(streamedResponse);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'wallet': data['data']
-        };
+        return {'success': true, 'wallet': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -448,22 +494,13 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка создания кошелька'
-      };
+      return {'success': false, 'message': 'Ошибка создания кошелька'};
     } catch (e) {
       print('Create wallet error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -510,10 +547,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -558,26 +597,27 @@ class ApiService {
       if (name != null) body['name'] = name;
       if (categoryId != null) body['category_id'] = categoryId;
       if (comment != null) body['comment'] = comment;
-      if (templateTransaction != null) body['template_transaction'] = templateTransaction;
-      if (regularTransaction != null) body['regular_transaction'] = regularTransaction;
+      if (templateTransaction != null)
+        body['template_transaction'] = templateTransaction;
+      if (regularTransaction != null)
+        body['regular_transaction'] = regularTransaction;
       if (days != null) body['days'] = days;
 
       _logRequest('POST', url, headers, jsonEncode(body));
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: headers,
-        body: jsonEncode(body),
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'transaction': data['data']
-        };
+        return {'success': true, 'transaction': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -588,32 +628,23 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка создания транзакции'
-      };
+      return {'success': false, 'message': 'Ошибка создания транзакции'};
     } catch (e) {
       print('Create transaction error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
   // Обновление транзакции
   Future<Map<String, dynamic>> updateTransaction(
-      int transactionId, {
-        String? name,
-        int? amount,
-        String? comment,
-      }) async {
+    int transactionId, {
+    String? name,
+    int? amount,
+    String? comment,
+  }) async {
     try {
       final headers = await _getHeaders();
       final url = '$baseUrl/v1/wallet-transactions/$transactionId';
@@ -626,20 +657,19 @@ class ApiService {
 
       _logRequest('PUT', url, headers, jsonEncode(body));
 
-      final response = await http.put(
-        Uri.parse(url),
-        headers: headers,
-        body: jsonEncode(body),
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .put(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'transaction': data['data']
-        };
+        return {'success': true, 'transaction': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -650,22 +680,13 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
-      return {
-        'success': false,
-        'message': 'Ошибка обновления транзакции'
-      };
+      return {'success': false, 'message': 'Ошибка обновления транзакции'};
     } catch (e) {
       print('Update transaction error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -677,10 +698,12 @@ class ApiService {
 
       _logRequest('DELETE', url, headers);
 
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .delete(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -692,7 +715,8 @@ class ApiService {
   }
 
   // Получение данных для круговой диаграммы расходов/доходов
-  Future<Map<String, dynamic>> getCircleDiagramData(String period, {String? type}) async {
+  Future<Map<String, dynamic>> getCircleDiagramData(String period,
+      {String? type}) async {
     try {
       final headers = await _getHeaders();
       String url = '$baseUrl/v1/analytics/circle-diagram?period=$period';
@@ -703,10 +727,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -733,10 +759,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -755,15 +783,10 @@ class ApiService {
   // Преобразование JSON в объект FinanceTransaction
   FinanceTransaction _parseTransaction(Map<String, dynamic> json) {
     // Определяем тип транзакции
-    TransactionType transactionType = json['type'] == 1 || json['type_def'] == 'income'
-        ? TransactionType.income
-        : TransactionType.expense;
-
-    // Извлекаем категорию
-    String categoryName = 'Без категории';
-    if (json['category'] != null && json['category'] is Map) {
-      categoryName = json['category']['name'] ?? 'Без категории';
-    }
+    TransactionType transactionType =
+        json['type'] == 1 || json['type_def'] == 'income'
+            ? TransactionType.income
+            : TransactionType.expense;
 
     return FinanceTransaction(
       id: json['id'].toString(),
@@ -772,7 +795,7 @@ class ApiService {
           ? json['amount'].toDouble()
           : double.parse(json['amount'].toString()),
       date: DateTime.parse(json['date']),
-      category: categoryName,
+      category: Category.fromMap(json['category'] ?? {'name': 'Без категории'}),
       type: transactionType,
       note: json['comment'],
     );
@@ -789,15 +812,14 @@ class ApiService {
     };
   }
 
-
   // Добавьте этот метод в класс ApiService
 
   // Загрузка банковской выписки
   Future<Map<String, dynamic>> uploadBankStatement(
-      String filePath,
-      String fileName,
-      String fileType,
-      ) async {
+    String filePath,
+    String fileName,
+    String fileType,
+  ) async {
     try {
       final headers = await _getHeaders();
       headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
@@ -818,17 +840,15 @@ class ApiService {
 
       _logRequest('POST', url, headers, 'File upload: $fileName ($fileType)');
 
-      final streamedResponse = await request.send().timeout(EnvironmentConfig.apiTimeout);
+      final streamedResponse =
+          await request.send().timeout(EnvironmentConfig.apiTimeout);
       final response = await http.Response.fromStream(streamedResponse);
 
       _logResponse(response);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': data['data']
-        };
+        return {'success': true, 'data': data['data']};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -839,10 +859,7 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {
-          'success': false,
-          'message': errorMessage
-        };
+        return {'success': false, 'message': errorMessage};
       }
 
       return {
@@ -851,10 +868,7 @@ class ApiService {
       };
     } catch (e) {
       print('Upload bank statement error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения: $e'
-      };
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
@@ -866,10 +880,12 @@ class ApiService {
 
       _logRequest('GET', url, headers);
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: headers,
-      ).timeout(EnvironmentConfig.apiTimeout);
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: headers,
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
 
       _logResponse(response);
 
@@ -877,7 +893,9 @@ class ApiService {
         final data = jsonDecode(response.body);
         if (data is Map && data.containsKey('data')) {
           final List<dynamic> statements = data['data'];
-          return statements.map((item) => item as Map<String, dynamic>).toList();
+          return statements
+              .map((item) => item as Map<String, dynamic>)
+              .toList();
         }
       }
       return [];

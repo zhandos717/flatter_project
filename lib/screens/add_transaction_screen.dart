@@ -1,10 +1,14 @@
+import 'package:finance_app/models/category.dart';
+import 'package:finance_app/utils/icon_dropdown_items.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:finance_app/models/finance_transaction.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/widgets/color_picker_widget.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final FinanceTransaction? transaction;
@@ -29,19 +33,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _noteController = TextEditingController();
 
   late DateTime _selectedDate;
-  late String _selectedCategory;
+  int? _selectedCategoryId; // Теперь храним только ID категории
   late TransactionType _transactionType;
 
-  final List<String> _expenseCategories = [
-    'Еда', 'Транспорт', 'Развлечения', 'Счета', 'Покупки', 'Здоровье', 'Другое'
-  ];
-
-  final List<String> _incomeCategories = [
-    'Зарплата', 'Фриланс', 'Инвестиции', 'Подарки', 'Другое'
-  ];
-
   // Предустановленные суммы для быстрого выбора
-  final List<double> _quickAmounts = [50, 100, 200, 500, 1000];
+  final List<double> _quickAmounts = [1000, 2000, 5000, 10000, 20000];
   AmountInputMode _amountInputMode = AmountInputMode.keyboard;
 
   @override
@@ -52,16 +48,33 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _titleController.text = widget.transaction!.title;
       _amountController.text = widget.transaction!.amount.toString();
       _selectedDate = widget.transaction!.date;
-      _selectedCategory = widget.transaction!.category;
+      _selectedCategoryId = widget
+          .transaction!.category.id; // Предполагаем, что category - это ID
       _transactionType = widget.transaction!.type;
       _noteController.text = widget.transaction!.note ?? '';
     } else {
       // Режим добавления
       _selectedDate = DateTime.now();
       _transactionType = widget.initialType ?? TransactionType.expense;
-      _selectedCategory = _transactionType == TransactionType.expense
-          ? _expenseCategories[0]
-          : _incomeCategories[0];
+      // Категорию будем устанавливать в didChangeDependencies
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Установим категорию здесь, чтобы иметь доступ к контексту
+    if (_selectedCategoryId == null) {
+      final categoryProvider =
+          Provider.of<CategoryProvider>(context, listen: false);
+      final categories = _transactionType == TransactionType.expense
+          ? categoryProvider.expenseCategories
+          : categoryProvider.incomeCategories;
+
+      // Если есть категории, выбираем первую
+      if (categories.isNotEmpty) {
+        _selectedCategoryId = categories[0]['id'];
+      }
     }
   }
 
@@ -75,6 +88,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   void _submitForm() {
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Пожалуйста, выберите категорию')),
+      );
+      return;
+    }
 
     final title = _titleController.text;
     final amount = double.parse(_amountController.text);
@@ -85,7 +104,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       title: title,
       amount: amount,
       date: _selectedDate,
-      category: _selectedCategory,
+      category: Category(
+          id: _selectedCategoryId,
+          name: 'name',
+          type: 0,
+          icon: 1,
+          color: 'color'),
+      //_selectedCategoryId!, // Используем ID категории
       type: _transactionType,
       note: note,
     );
@@ -123,14 +148,188 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     });
   }
 
+  void _showAddCategoryDialog() {
+    // Открываем диалог для добавления новой категории
+    final nameController = TextEditingController();
+    final colorController = TextEditingController(text: '#4CAF50');
+    int selectedIcon = 0;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          // Получаем доступ к CategoryProvider
+          final categoryProvider = Provider.of<CategoryProvider>(context);
+
+          return AlertDialog(
+            title: const Text('Добавить категорию'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Название категории',
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<int>(
+                    value: selectedIcon,
+                    decoration: const InputDecoration(
+                      labelText: 'Выберите иконку',
+                    ),
+                    items: IconDropdownItems.buildIconDropdownItems(context),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedIcon = value!;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: colorController,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Цвет',
+                      suffixIcon: IconButton(
+                        icon: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: _parseColor(colorController.text),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final selectedColor = await showDialog<Color>(
+                            context: context,
+                            builder: (context) => ColorPickerDialog(
+                              initialColor: _parseColor(colorController.text),
+                            ),
+                          );
+
+                          if (selectedColor != null) {
+                            setState(() {
+                              colorController.text =
+                                  '#${selectedColor.value.toRadixString(16).substring(2).toUpperCase()}';
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  // Отображение ошибки из провайдера, если она есть
+                  if (categoryProvider.error != null &&
+                      categoryProvider.error!.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade100,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        categoryProvider.error!,
+                        style: TextStyle(color: Colors.red.shade900),
+                      ),
+                    ),
+                  ],
+                  // Индикатор загрузки
+                  if (isLoading || categoryProvider.isLoading) ...[
+                    const SizedBox(height: 20),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Отмена'),
+                onPressed: () {
+                  // Сбрасываем ошибку при закрытии диалога
+                  Provider.of<CategoryProvider>(context, listen: false)
+                      .clearError();
+                  Navigator.of(ctx).pop();
+                },
+              ),
+              TextButton(
+                child: const Text('Добавить'),
+                onPressed: isLoading || categoryProvider.isLoading
+                    ? null
+                    : () async {
+                        // Проверка на пустое имя
+                        if (nameController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Пожалуйста, введите название категории')),
+                          );
+                          return;
+                        }
+
+                        // Устанавливаем локальный индикатор загрузки
+                        setState(() {
+                          isLoading = true;
+                        });
+
+                        // Сбрасываем предыдущую ошибку
+                        Provider.of<CategoryProvider>(context, listen: false)
+                            .clearError();
+
+                        // Пытаемся добавить категорию
+                        final success = await Provider.of<CategoryProvider>(
+                                context,
+                                listen: false)
+                            .addCategory(
+                          nameController.text.trim(),
+                          _transactionType == TransactionType.expense ? 0 : 1,
+                          selectedIcon,
+                          colorController.text.trim(),
+                        );
+
+                        // Обновляем локальное состояние загрузки
+                        setState(() {
+                          isLoading = false;
+                        });
+
+                        // Если успешно, закрываем диалог
+                        if (success) {
+                          Navigator.of(ctx).pop();
+                          // Обновляем UI
+                          this.setState(() {});
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    List<String> categories = _transactionType == TransactionType.expense
-        ? _expenseCategories
-        : _incomeCategories;
+    // Получаем категории из провайдера
+    final categoryProvider = Provider.of<CategoryProvider>(context);
+    final categories = _transactionType == TransactionType.expense
+        ? categoryProvider.expenseCategories
+        : categoryProvider.incomeCategories;
 
-    if (!categories.contains(_selectedCategory)) {
-      _selectedCategory = categories[0];
+    // Проверяем, существует ли выбранная категория в текущем списке категорий
+    bool categoryExists = false;
+    if (_selectedCategoryId != null) {
+      categoryExists =
+          categories.any((cat) => cat['id'] == _selectedCategoryId);
+    }
+
+    // Если выбранной категории нет в списке, выбираем первую категорию
+    if (!categoryExists && categories.isNotEmpty) {
+      _selectedCategoryId = categories[0]['id'];
+    } else if (categories.isEmpty) {
+      _selectedCategoryId = null;
     }
 
     return Scaffold(
@@ -218,7 +417,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       TextFormField(
                         controller: _amountController,
                         decoration: InputDecoration(
-                          prefixText: '\$ ',
+                          prefixText: '\₸ ',
                           hintText: '0.00',
                         ),
                         keyboardType:
@@ -238,8 +437,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       )
                     else
                       Wrap(
-                        spacing: AppTheme.paddingS,
-                        runSpacing: AppTheme.paddingS,
+                        spacing: AppTheme.paddingXS,
+                        runSpacing: AppTheme.paddingXS,
                         children: _quickAmounts
                             .map((amount) => ElevatedButton(
                                   style: ElevatedButton.styleFrom(
@@ -256,7 +455,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                         : Colors.black,
                                   ),
                                   onPressed: () => _setAmount(amount),
-                                  child: Text('\$${amount.toStringAsFixed(0)}'),
+                                  child: Text(amount.toStringAsFixed(0)),
                                 ))
                             .toList(),
                       ),
@@ -276,43 +475,76 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Категория',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Категория',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        // Кнопка добавления новой категории
+                        TextButton.icon(
+                          onPressed: _showAddCategoryDialog,
+                          icon: Icon(Icons.add),
+                          label: Text('Добавить'),
+                          style: TextButton.styleFrom(
+                            foregroundColor:
+                                _transactionType == TransactionType.income
+                                    ? AppTheme.incomeColor
+                                    : AppTheme.expenseColor,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: AppTheme.paddingM),
-                    Wrap(
-                      spacing: AppTheme.paddingS,
-                      runSpacing: AppTheme.paddingS,
-                      children: categories
-                          .map(
-                            (category) => ChoiceChip(
-                              label: Text(category),
-                              selected: _selectedCategory == category,
+                    SizedBox(height: AppTheme.paddingXS),
+                    if (categories.isEmpty)
+                      Center(
+                        child: Text(
+                          'Нет доступных категорий. Добавьте новую категорию.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: AppTheme.paddingS,
+                        runSpacing: AppTheme.paddingS,
+                        children: categories.map(
+                          (categoryMap) {
+                            // Создаем временный объект Category для удобства работы
+                            final category = Category.fromMap(categoryMap);
+
+                            return ChoiceChip(
+                              label: Text(category.name),
+                              selected: _selectedCategoryId == category.id,
                               onSelected: (selected) {
                                 if (selected) {
                                   setState(() {
-                                    _selectedCategory = category;
+                                    _selectedCategoryId = category.id;
                                   });
                                 }
                               },
                               backgroundColor: Colors.grey[200],
-                              selectedColor:
-                                  _transactionType == TransactionType.income
-                                      ? AppTheme.incomeColor
-                                      : AppTheme.expenseColor,
+                              selectedColor: category.colorValue,
                               labelStyle: TextStyle(
-                                color: _selectedCategory == category
+                                color: _selectedCategoryId == category.id
                                     ? Colors.white
                                     : Colors.black,
                               ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+                              avatar: Icon(
+                                category.iconData,
+                                size: 18,
+                                color: _selectedCategoryId == category.id
+                                    ? Colors.white
+                                    : Colors.black,
+                              ),
+                            );
+                          },
+                        ).toList(),
+                      ),
                   ],
                 ),
               ),
@@ -395,7 +627,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ? AppTheme.incomeColor
                     : AppTheme.expenseColor,
               ),
-              onPressed: _submitForm,
+              onPressed: categories.isEmpty ? null : _submitForm,
+              // Блокируем кнопку, если нет категорий
               icon: Icon(widget.transaction == null ? Icons.add : Icons.save),
               label: Text(
                 widget.transaction == null
@@ -424,6 +657,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       onTap: () {
         setState(() {
           _transactionType = type;
+          // При смене типа транзакции нужно обновить категорию
+          final categoryProvider =
+              Provider.of<CategoryProvider>(context, listen: false);
+          final categories = type == TransactionType.expense
+              ? categoryProvider.expenseCategories
+              : categoryProvider.incomeCategories;
+
+          if (categories.isNotEmpty) {
+            _selectedCategoryId = categories[0]['id'];
+          } else {
+            _selectedCategoryId = null;
+          }
         });
       },
       borderRadius: BorderRadius.circular(AppTheme.radiusS),
@@ -496,5 +741,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ),
       ),
     );
+  }
+
+  // Преобразование цвета из HEX-строки
+  Color _parseColor(String hexColor) {
+    hexColor = hexColor.toUpperCase().replaceAll('#', '');
+
+    if (hexColor.length == 6) {
+      hexColor = 'FF' + hexColor;
+    }
+
+    return Color(int.parse(hexColor, radix: 16));
   }
 }

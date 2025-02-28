@@ -124,7 +124,7 @@ class RecentTransactions extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          tx.category,
+                          tx.category.name,
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 12,

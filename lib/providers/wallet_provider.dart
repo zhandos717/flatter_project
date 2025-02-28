@@ -8,7 +8,9 @@ class WalletProvider with ChangeNotifier {
   String? _error;
 
   List<Map<String, dynamic>> get wallets => [..._wallets];
+
   bool get isLoading => _isLoading;
+
   String? get error => _error;
 
   // Получение кошельков определенного типа
@@ -31,12 +33,12 @@ class WalletProvider with ChangeNotifier {
 
   // Создание нового кошелька
   Future<bool> addWallet(
-      String name,
-      int type, {
-        int? desiredBalance,
-        String? color,
-        int? icon,
-      }) async {
+    String name,
+    int type, {
+    int? desiredBalance,
+    String? color,
+    int? icon,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
@@ -79,7 +81,8 @@ class WalletProvider with ChangeNotifier {
   // Получение кошелька по ID
   Map<String, dynamic>? getWalletById(int walletId) {
     try {
-      return _wallets.firstWhere((wallet) => wallet['id'].toString() == walletId.toString());
+      return _wallets.firstWhere(
+          (wallet) => wallet['id'].toString() == walletId.toString());
     } catch (e) {
       return null;
     }
@@ -87,12 +90,27 @@ class WalletProvider with ChangeNotifier {
 
   // Фильтрация кошельков по типу
   List<Map<String, dynamic>> getWalletsByType(int type) {
-    return _wallets.where((wallet) => wallet['type'].toString() == type.toString()).toList();
+    return _wallets
+        .where((wallet) => wallet['type'].toString() == type.toString())
+        .toList();
   }
 
   // Очистка сообщений об ошибках
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  int _selectedWalletIndex = 0; // Default to first wallet
+
+  // Getter for selected wallet index
+  int get selectedWalletIndex => _selectedWalletIndex;
+
+  // Method to set selected wallet index
+  void setSelectedWalletIndex(int index) {
+    if (index >= 0 && index < _wallets.length) {
+      _selectedWalletIndex = index;
+      notifyListeners(); // Notify listeners of the change
+    }
   }
 }

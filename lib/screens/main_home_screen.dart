@@ -11,6 +11,8 @@ import 'package:finance_app/models/finance_transaction.dart';
 import 'package:finance_app/screens/bank_statement_screen.dart';
 import 'package:finance_app/screens/transactions_list_screen.dart';
 
+import 'categories_screen.dart';
+
 
 class MainHomeScreen extends StatelessWidget {
   const MainHomeScreen({Key? key}) : super(key: key);
@@ -69,11 +71,15 @@ class MainHomeScreen extends StatelessWidget {
                         ),
                         SizedBox(width: AppTheme.paddingM),
                         QuickActionButton(
-                          icon: Icons.account_balance_wallet,
-                          label: 'Кошельки',
+                          icon: Icons.category,
+                          label: 'Категории',
                           color: AppTheme.secondaryColor,
                           onTap: () {
-                            // Навигация на экран кошельков
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => CategoriesScreen(),
+                              ),
+                            );
                           },
                         ),
                         SizedBox(width: AppTheme.paddingM),

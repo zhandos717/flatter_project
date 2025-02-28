@@ -9,6 +9,8 @@ import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/utils/formatters.dart';
 
 class StatisticsScreen extends StatefulWidget {
+  const StatisticsScreen({super.key});
+
   @override
   _StatisticsScreenState createState() => _StatisticsScreenState();
 }
@@ -154,7 +156,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             // Группируем транзакции по категориям
             Map<String, double> categoryAmounts = {};
             for (var tx in transactions) {
-              categoryAmounts.update(tx.category, (value) => value + tx.amount,
+              categoryAmounts.update(tx.category.name, (value) => value + tx.amount,
                   ifAbsent: () => tx.amount);
             }
 
