@@ -788,4 +788,102 @@ class ApiService {
       'comment': transaction.note,
     };
   }
+
+
+  // Добавьте этот метод в класс ApiService
+
+  // Загрузка банковской выписки
+  Future<Map<String, dynamic>> uploadBankStatement(
+      String filePath,
+      String fileName,
+      String fileType,
+      ) async {
+    try {
+      final headers = await _getHeaders();
+      headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
+
+      final url = '$baseUrl/v1/bank-statements/upload';
+
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+
+      // Добавляем заголовки
+      request.headers.addAll(headers);
+
+      // Добавляем файл
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        filename: fileName,
+      ));
+
+      _logRequest('POST', url, headers, 'File upload: $fileName ($fileType)');
+
+      final streamedResponse = await request.send().timeout(EnvironmentConfig.apiTimeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      _logResponse(response);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'data': data['data']
+        };
+      } else if (response.statusCode == 422) {
+        final data = jsonDecode(response.body);
+        String errorMessage = 'Ошибка валидации';
+        if (data['errors'] != null) {
+          List<String> errors = [];
+          (data['errors'] as Map<String, dynamic>).forEach((key, value) {
+            errors.add((value as List).join('. '));
+          });
+          errorMessage = errors.join('\n');
+        }
+        return {
+          'success': false,
+          'message': errorMessage
+        };
+      }
+
+      return {
+        'success': false,
+        'message': 'Ошибка загрузки банковской выписки'
+      };
+    } catch (e) {
+      print('Upload bank statement error: $e');
+      return {
+        'success': false,
+        'message': 'Ошибка соединения: $e'
+      };
+    }
+  }
+
+  // Получение списка загруженных банковских выписок
+  Future<List<Map<String, dynamic>>> getBankStatements() async {
+    try {
+      final headers = await _getHeaders();
+      final url = '$baseUrl/v1/bank-statements';
+
+      _logRequest('GET', url, headers);
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: headers,
+      ).timeout(EnvironmentConfig.apiTimeout);
+
+      _logResponse(response);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is Map && data.containsKey('data')) {
+          final List<dynamic> statements = data['data'];
+          return statements.map((item) => item as Map<String, dynamic>).toList();
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Get bank statements error: $e');
+      return [];
+    }
+  }
 }

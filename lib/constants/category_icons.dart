@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 
+// Обновите константы в файле lib/constants/category_icons.dart
+
 class CategoryIcons {
   static const Map<String, IconData> expenseIcons = {
-    'Food': Icons.fastfood,
-    'Transport': Icons.directions_car,
-    'Entertainment': Icons.movie,
-    'Bills': Icons.receipt,
-    'Shopping': Icons.shopping_bag,
-    'Health': Icons.medical_services,
-    'Other': Icons.more_horiz,
+    'Еда': Icons.fastfood,
+    'Транспорт': Icons.directions_car,
+    'Развлечения': Icons.movie,
+    'Счета': Icons.receipt,
+    'Покупки': Icons.shopping_bag,
+    'Здоровье': Icons.medical_services,
+    'Другое': Icons.more_horiz,
   };
-  
+
   static const Map<String, IconData> incomeIcons = {
-    'Salary': Icons.work,
-    'Freelance': Icons.computer,
-    'Investment': Icons.trending_up,
-    'Gift': Icons.card_giftcard,
-    'Other': Icons.more_horiz,
+    'Зарплата': Icons.work,
+    'Фриланс': Icons.computer,
+    'Инвестиции': Icons.trending_up,
+    'Подарки': Icons.card_giftcard,
+    'Другое': Icons.more_horiz,
   };
-  
+
   static const Map<String, Color> categoryColors = {
-    'Food': Colors.orange,
-    'Transport': Colors.blue,
-    'Entertainment': Colors.purple,
-    'Bills': Colors.yellow,
-    'Shopping': Colors.pink,
-    'Health': Colors.green,
-    'Other': Colors.grey,
-    'Salary': Colors.green,
-    'Freelance': Colors.cyan,
-    'Investment': Colors.indigo,
-    'Gift': Colors.amber,
+    'Еда': Colors.orange,
+    'Транспорт': Colors.blue,
+    'Развлечения': Colors.purple,
+    'Счета': Colors.yellow,
+    'Покупки': Colors.pink,
+    'Здоровье': Colors.green,
+    'Другое': Colors.grey,
+    'Зарплата': Colors.green,
+    'Фриланс': Colors.cyan,
+    'Инвестиции': Colors.indigo,
+    'Подарки': Colors.amber,
   };
 }

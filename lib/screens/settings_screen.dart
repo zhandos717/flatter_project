@@ -8,11 +8,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Настройки'),
-      ),
       body: ListView(
         children: [
           ListTile(
@@ -47,7 +43,8 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showLanguageDialog(BuildContext context, SettingsProvider settingsProvider) {
+  void _showLanguageDialog(
+      BuildContext context, SettingsProvider settingsProvider) {
     showDialog(
       context: context,
       builder: (context) {

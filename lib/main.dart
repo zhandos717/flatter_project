@@ -1,4 +1,5 @@
 import 'package:finance_app/providers/settings_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
@@ -8,10 +9,11 @@ import 'providers/transaction_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/category_provider.dart';
 import 'utils/environment_config.dart';
-
+import 'package:intl/date_symbol_data_local.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
+  initializeDateFormatting('ru', null);
   // Установка окружения для API
   EnvironmentConfig.setEnvironment(Environment.local);
 
@@ -33,22 +35,9 @@ class MyApp extends StatelessWidget {
         builder: (context, settingsProvider, child) {
           return MaterialApp(
             title: 'FinTrack',
-            theme: ThemeData(
-              primarySwatch: Colors.green,
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-              appBarTheme: AppBarTheme(
-                elevation: 0,
-              ),
-              brightness: Brightness.light,
-            ),
-            darkTheme: ThemeData(
-              primarySwatch: Colors.green,
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-              appBarTheme: AppBarTheme(
-                elevation: 0,
-              ),
-              brightness: Brightness.dark,
-            ),
+            debugShowCheckedModeBanner: false, // Убираем баннер debug
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
             themeMode: settingsProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
             home: AuthWrapper(),
           );
