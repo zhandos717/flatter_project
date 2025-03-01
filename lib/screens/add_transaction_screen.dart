@@ -1,14 +1,17 @@
 import 'package:finance_app/models/category.dart';
-import 'package:finance_app/utils/icon_dropdown_items.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 import 'package:finance_app/models/finance_transaction.dart';
-import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/providers/wallet_provider.dart';
 import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/utils/icon_dropdown_items.dart';
 import 'package:finance_app/widgets/color_picker_widget.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+
+import 'add_wallet_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final FinanceTransaction? transaction;
@@ -33,7 +36,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final _noteController = TextEditingController();
 
   late DateTime _selectedDate;
-  int? _selectedCategoryId; // Теперь храним только ID категории
+  int? _selectedCategoryId;
+  int? _selectedWalletId;
   late TransactionType _transactionType;
 
   // Предустановленные суммы для быстрого выбора
@@ -48,15 +52,49 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _titleController.text = widget.transaction!.title;
       _amountController.text = widget.transaction!.amount.toString();
       _selectedDate = widget.transaction!.date;
-      _selectedCategoryId = widget
-          .transaction!.category.id; // Предполагаем, что category - это ID
+      _selectedCategoryId = widget.transaction!.category.id;
       _transactionType = widget.transaction!.type;
       _noteController.text = widget.transaction!.note ?? '';
+      _selectedWalletId = widget.transaction!.walletId;
     } else {
       // Режим добавления
       _selectedDate = DateTime.now();
       _transactionType = widget.initialType ?? TransactionType.expense;
-      // Категорию будем устанавливать в didChangeDependencies
+      // Загрузим кошельки при инициализации
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadWallets();
+      });
+    }
+  }
+
+  Future<void> _loadWallets() async {
+    // Проверка, что виджет еще присоединен к дереву
+    if (!mounted) return;
+
+    // Загружаем кошельки в зависимости от типа транзакции
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+
+    try {
+      // Ждем завершения загрузки кошельков
+      await walletProvider.fetchWallets(type: 1);
+
+      // Проверяем еще раз, что виджет все еще в дереве перед обновлением состояния
+      if (!mounted) return;
+
+      // Выбираем первый кошелек по умолчанию, если есть
+      if (walletProvider.wallets.isNotEmpty && _selectedWalletId == null) {
+        setState(() {
+          _selectedWalletId = walletProvider.wallets[0].id;
+        });
+      }
+    } catch (error) {
+      // Обработка ошибок
+      if (mounted) {
+        // Можно показать сообщение об ошибке
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Не удалось загрузить кошельки: $error')),
+        );
+      }
     }
   }
 
@@ -95,6 +133,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
 
+    if (_selectedWalletId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Пожалуйста, выберите кошелек')),
+      );
+      return;
+    }
+
     final title = _titleController.text;
     final amount = double.parse(_amountController.text);
     final note = _noteController.text.isEmpty ? null : _noteController.text;
@@ -110,9 +155,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           type: 0,
           icon: 1,
           color: 'color'),
-      //_selectedCategoryId!, // Используем ID категории
       type: _transactionType,
       note: note,
+      walletId: _selectedWalletId,
     );
 
     if (widget.transaction == null) {
@@ -146,6 +191,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     setState(() {
       _amountController.text = amount.toString();
     });
+  }
+
+  void _openAddWalletScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddWalletScreen(),
+      ),
+    );
+
+    if (result == true) {
+      // Если кошелек был создан, обновляем список
+      await _loadWallets();
+      // Проверяем, загрузились ли кошельки и выбираем первый
+      final walletProvider =
+          Provider.of<WalletProvider>(context, listen: false);
+      if (walletProvider.wallets.isNotEmpty && _selectedWalletId == null) {
+        setState(() {
+          _selectedWalletId = walletProvider.wallets.first.id;
+        });
+      }
+    }
   }
 
   void _showAddCategoryDialog() {
@@ -318,6 +385,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ? categoryProvider.expenseCategories
         : categoryProvider.incomeCategories;
 
+    // Получаем кошельки из провайдера
+    final walletProvider = Provider.of<WalletProvider>(context);
+    final wallets = walletProvider.wallets;
+
     // Проверяем, существует ли выбранная категория в текущем списке категорий
     bool categoryExists = false;
     if (_selectedCategoryId != null) {
@@ -330,6 +401,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _selectedCategoryId = categories[0]['id'];
     } else if (categories.isEmpty) {
       _selectedCategoryId = null;
+    }
+
+    // Проверяем, существует ли выбранный кошелек в текущем списке кошельков
+    bool walletExists = false;
+    if (_selectedWalletId != null) {
+      walletExists = wallets.any((wallet) => wallet.id == _selectedWalletId);
+    }
+
+    // Если выбранного кошелька нет в списке, выбираем первый кошелек
+    if (!walletExists && wallets.isNotEmpty) {
+      _selectedWalletId = wallets[0].id;
+    } else if (wallets.isEmpty) {
+      _selectedWalletId = null;
     }
 
     return Scaffold(
@@ -370,6 +454,94 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         isSelected: _transactionType == TransactionType.income,
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Выбор кошелька
+            Card(
+              margin: EdgeInsets.only(bottom: AppTheme.paddingM),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusM),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(AppTheme.paddingM),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Кошелек',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        // Кнопка добавления нового кошелька
+                        TextButton.icon(
+                          onPressed: _openAddWalletScreen,
+                          icon: Icon(Icons.add),
+                          label: Text('Добавить'),
+                          style: TextButton.styleFrom(
+                            foregroundColor:
+                                _transactionType == TransactionType.income
+                                    ? AppTheme.incomeColor
+                                    : AppTheme.expenseColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppTheme.paddingS),
+                    if (walletProvider.isLoading)
+                      Center(child: CircularProgressIndicator())
+                    else if (wallets.isEmpty)
+                      Center(
+                        child: Text(
+                          'Нет доступных кошельков. Добавьте новый кошелек.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: AppTheme.paddingS,
+                        runSpacing: AppTheme.paddingS,
+                        children: wallets.map(
+                          (wallet) {
+                            return ChoiceChip(
+                              label: Text(wallet.name),
+                              selected: _selectedWalletId == wallet.id,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  setState(() {
+                                    _selectedWalletId = wallet.id;
+                                  });
+                                }
+                              },
+                              backgroundColor: Colors.grey[200],
+                              selectedColor: _parseColor(wallet.color),
+                              labelStyle: TextStyle(
+                                color: _selectedWalletId == wallet.id
+                                    ? Colors.white
+                                    : Colors.black,
+                              ),
+                              avatar: wallet.icon != null
+                                  ? Icon(
+                                      IconData(int.parse(wallet.icon!),
+                                          fontFamily: 'MaterialIcons'),
+                                      size: 18,
+                                      color: _selectedWalletId == wallet.id
+                                          ? Colors.white
+                                          : Colors.black,
+                                    )
+                                  : null,
+                            );
+                          },
+                        ).toList(),
+                      ),
                   ],
                 ),
               ),
@@ -627,8 +799,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ? AppTheme.incomeColor
                     : AppTheme.expenseColor,
               ),
-              onPressed: categories.isEmpty ? null : _submitForm,
-              // Блокируем кнопку, если нет категорий
+              onPressed:
+                  (categories.isEmpty || wallets.isEmpty) ? null : _submitForm,
+              // Блокируем кнопку, если нет категорий или кошельков
               icon: Icon(widget.transaction == null ? Icons.add : Icons.save),
               label: Text(
                 widget.transaction == null
@@ -669,6 +842,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           } else {
             _selectedCategoryId = null;
           }
+
+          // Также обновляем список кошельков в зависимости от типа
+          _loadWallets();
         });
       },
       borderRadius: BorderRadius.circular(AppTheme.radiusS),

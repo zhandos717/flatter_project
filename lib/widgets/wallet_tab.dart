@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/wallet_provider.dart';
-import '../theme/app_theme.dart';
-
 import '../screens/transactions_list_screen.dart';
+import '../theme/app_theme.dart';
+import 'recent_transactions_list.dart';
 import 'total_balance_card.dart';
 import 'wallet_carousel.dart';
-import 'recent_transactions_list.dart';
 
 class WalletTab extends StatelessWidget {
   const WalletTab({Key? key}) : super(key: key);
@@ -32,7 +31,7 @@ class WalletTab extends StatelessWidget {
   Widget _buildWalletsContent(
       BuildContext context, WalletProvider walletProvider) {
     return RefreshIndicator(
-      onRefresh: () => walletProvider.fetchWallets(1),
+      onRefresh: () => walletProvider.fetchWallets(),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.paddingM),
         child: Column(
@@ -75,7 +74,8 @@ class WalletTab extends StatelessWidget {
           count,
           (index) => _buildPageIndicator(
               context,
-              Provider.of<WalletProvider>(context).selectedWalletIndex == index),
+              Provider.of<WalletProvider>(context).selectedWalletIndex ==
+                  index),
         ),
       ),
     );

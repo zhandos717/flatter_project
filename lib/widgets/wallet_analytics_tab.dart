@@ -1,15 +1,13 @@
+import 'package:finance_app/models/finance_transaction.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/providers/wallet_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/wallet_provider.dart';
-import '../providers/transaction_provider.dart';
-import '../theme/app_theme.dart';
-import '../models/finance_transaction.dart';
-
 import 'balance_chart_card.dart';
 import 'wallets_distribution_card.dart';
-import 'transactions_stats_card.dart';
 
 class WalletAnalyticsTab extends StatelessWidget {
   const WalletAnalyticsTab({Key? key}) : super(key: key);
@@ -33,11 +31,8 @@ class WalletAnalyticsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildAnalyticsContent(
-      BuildContext context,
-      WalletProvider walletProvider,
-      List<FinanceTransaction> transactions
-      ) {
+  Widget _buildAnalyticsContent(BuildContext context,
+      WalletProvider walletProvider, List<FinanceTransaction> transactions) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.paddingM),
       child: Column(
@@ -54,9 +49,7 @@ class WalletAnalyticsTab extends StatelessWidget {
   }
 
   Widget _buildBalanceChartSection(
-      BuildContext context,
-      List<FinanceTransaction> transactions
-      ) {
+      BuildContext context, List<FinanceTransaction> transactions) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -71,9 +64,7 @@ class WalletAnalyticsTab extends StatelessWidget {
   }
 
   Widget _buildWalletsDistributionSection(
-      BuildContext context,
-      WalletProvider walletProvider
-      ) {
+      BuildContext context, WalletProvider walletProvider) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -88,9 +79,7 @@ class WalletAnalyticsTab extends StatelessWidget {
   }
 
   Widget _buildTransactionsStatsSection(
-      BuildContext context,
-      List<FinanceTransaction> transactions
-      ) {
+      BuildContext context, List<FinanceTransaction> transactions) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

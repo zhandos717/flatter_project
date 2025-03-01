@@ -1,11 +1,10 @@
+import 'package:finance_app/providers/wallet_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/widgets/wallet_analytics_tab.dart';
+import 'package:finance_app/widgets/wallet_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:finance_app/providers/wallet_provider.dart';
-import 'package:finance_app/theme/app_theme.dart';
-
-import 'package:finance_app/widgets/wallet_tab.dart';
-import 'package:finance_app/widgets/wallet_analytics_tab.dart';
 import 'add_wallet_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -31,7 +30,7 @@ class _WalletScreenState extends State<WalletScreen>
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
       if (walletProvider.wallets.isEmpty) {
-        walletProvider.fetchWallets(1); // 1 - обычные кошельки
+        walletProvider.fetchWallets(type: 1); // 1 - обычные кошельки
       }
     });
   }
@@ -87,6 +86,7 @@ class _WalletScreenState extends State<WalletScreen>
 
   Widget _buildFloatingActionButton() {
     return FloatingActionButton(
+      heroTag: 'buttonAdd',
       onPressed: _showAddWalletDialog,
       backgroundColor: AppTheme.primaryColor,
       child: const Icon(Icons.add),

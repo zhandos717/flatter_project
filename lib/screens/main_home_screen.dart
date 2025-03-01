@@ -1,18 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:finance_app/providers/transaction_provider.dart';
-import 'package:finance_app/providers/auth_provider.dart';
-import 'package:finance_app/screens/add_transaction_screen.dart';
-import 'package:finance_app/theme/app_theme.dart';
-import 'package:finance_app/widgets/balance_card_simple.dart';
-import 'package:finance_app/widgets/recent_transactions.dart';
-import 'package:finance_app/widgets/quick_action_button.dart';
 import 'package:finance_app/models/finance_transaction.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/screens/add_transaction_screen.dart';
 import 'package:finance_app/screens/bank_statement_screen.dart';
 import 'package:finance_app/screens/transactions_list_screen.dart';
+import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/widgets/balance_card_simple.dart';
+import 'package:finance_app/widgets/quick_action_button.dart';
+import 'package:finance_app/widgets/recent_transactions.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'categories_screen.dart';
-
 
 class MainHomeScreen extends StatelessWidget {
   const MainHomeScreen({Key? key}) : super(key: key);
@@ -20,8 +18,6 @@ class MainHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final transactionProvider = Provider.of<TransactionProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final userName = authProvider.user?['name'] ?? 'Пользователь';
 
     return Scaffold(
       body: RefreshIndicator(
@@ -60,14 +56,16 @@ class MainHomeScreen extends StatelessWidget {
                           icon: Icons.add_circle_outline,
                           label: 'Доход',
                           color: AppTheme.incomeColor,
-                          onTap: () => _addTransaction(context, TransactionType.income),
+                          onTap: () =>
+                              _addTransaction(context, TransactionType.income),
                         ),
                         SizedBox(width: AppTheme.paddingM),
                         QuickActionButton(
                           icon: Icons.remove_circle_outline,
                           label: 'Расход',
                           color: AppTheme.expenseColor,
-                          onTap: () => _addTransaction(context, TransactionType.expense),
+                          onTap: () =>
+                              _addTransaction(context, TransactionType.expense),
                         ),
                         SizedBox(width: AppTheme.paddingM),
                         QuickActionButton(

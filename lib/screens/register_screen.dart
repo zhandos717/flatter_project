@@ -1,8 +1,8 @@
+import 'package:finance_app/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+
 import 'login_screen.dart';
-import 'main_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -53,7 +53,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Временная заглушка
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Функция регистрации в процессе разработки. Свяжитесь с администратором для создания учетной записи.'),
+        content: Text(
+            'Функция регистрации в процессе разработки. Свяжитесь с администратором для создания учетной записи.'),
         duration: Duration(seconds: 3),
       ),
     );
@@ -155,7 +156,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                              _obscurePassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                             ),
                             onPressed: () {
                               setState(() {
@@ -188,11 +191,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                              _obscureConfirmPassword
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
                             ),
                             onPressed: () {
                               setState(() {
-                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
                               });
                             },
                           ),
@@ -240,17 +246,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         child: auth.isLoading
                             ? SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            )
-                        )
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ))
                             : Text(
-                          'Зарегистрироваться',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                                'Зарегистрироваться',
+                                style: TextStyle(fontSize: 16),
+                              ),
                       ),
                       SizedBox(height: 20),
 

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+
 
 enum Environment { dev, staging, prod, local }
 
@@ -7,7 +7,7 @@ class EnvironmentConfig {
 
   // URLs для разных окружений
   static final Map<Environment, String> _baseUrls = {
-    Environment.local: 'http://10.0.2.2:3000/api' , // Для разработки
+    Environment.local: 'http://10.0.2.2:3000/api', // Для разработки
     Environment.dev: 'https://myfin.dualse.kz/api', // Для разработки
     Environment.staging: 'https://myfin.dualse.kz/api', // Тестовый сервер
     Environment.prod: 'https://myfin.dualse.kz/api', // Продакшн сервер

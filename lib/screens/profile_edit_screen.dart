@@ -4,7 +4,6 @@ import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:finance_app/providers/auth_provider.dart';
-import 'package:finance_app/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 
 class ProfileEditScreen extends StatefulWidget {

@@ -1,3 +1,4 @@
+import 'package:finance_app/models/wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,26 +7,31 @@ import '../../../theme/app_theme.dart';
 import '../../../utils/formatters.dart';
 
 class WalletCarousel extends StatelessWidget {
-  const WalletCarousel({Key? key}) : super(key: key);
+  const WalletCarousel({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<WalletProvider>(
       builder: (context, walletProvider, _) {
+        if (walletProvider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (walletProvider.wallets.isEmpty) {
+          return _buildEmptyWalletState();
+        }
+
         return SizedBox(
           height: 180,
           child: PageView.builder(
             controller: PageController(viewportFraction: 0.9),
             itemCount: walletProvider.wallets.length,
-            onPageChanged: (index) {
-              walletProvider.setSelectedWalletIndex(index);
-            },
+            onPageChanged: walletProvider.setSelectedWalletIndex,
             itemBuilder: (context, index) {
               final wallet = walletProvider.wallets[index];
-              return _buildWalletCard(
-                  context,
-                  wallet,
-                  index == walletProvider.selectedWalletIndex
+              return WalletCard(
+                wallet: wallet,
+                isActive: index == walletProvider.selectedWalletIndex,
               );
             },
           ),
@@ -34,16 +40,31 @@ class WalletCarousel extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletCard(
-      BuildContext context,
-      Map<String, dynamic> wallet,
-      bool isActive
-      ) {
-    final name = wallet['name'] ?? 'Кошелек';
-    final balance = double.parse(wallet['balance'].toString());
-    final type = wallet['type'].toString();
-    final colorStr = wallet['color'] ?? '#4CAF50';
-    final color = _parseColor(colorStr);
+  Widget _buildEmptyWalletState() {
+    return const SizedBox(
+      height: 180,
+      child: Card(
+        child: Center(
+          child: Text('У вас пока нет кошельков'),
+        ),
+      ),
+    );
+  }
+}
+
+class WalletCard extends StatelessWidget {
+  final Wallet wallet;
+  final bool isActive;
+
+  const WalletCard({
+    Key? key,
+    required this.wallet,
+    this.isActive = false,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _parseColor(wallet.color ?? '#4CAF50');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5),
@@ -68,11 +89,11 @@ class WalletCarousel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildWalletCardHeader(name, type),
+              _buildHeader(),
               const Spacer(),
-              _buildWalletCardBalance(balance),
+              _buildBalance(),
               const SizedBox(height: AppTheme.paddingS),
-              _buildWalletCardActions(),
+              _buildActions(context),
             ],
           ),
         ),
@@ -80,7 +101,10 @@ class WalletCarousel extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletCardHeader(String name, String type) {
+  Widget _buildHeader() {
+    final name = wallet.name.isNotEmpty ? wallet.name : 'Кошелек';
+    final type = wallet.type;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -116,7 +140,9 @@ class WalletCarousel extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletCardBalance(double balance) {
+  Widget _buildBalance() {
+    final balance = wallet.balanceAsDouble;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -132,7 +158,7 @@ class WalletCarousel extends StatelessWidget {
           CurrencyFormatter.format(balance),
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -140,45 +166,67 @@ class WalletCarousel extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletCardActions() {
+  Widget _buildActions(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        IconButton(
-          icon: const Icon(
-            Icons.edit_outlined,
-            color: Colors.white,
-            size: 20,
-          ),
-          onPressed: () {
-            // TODO: Implement wallet edit functionality
-          },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          visualDensity: VisualDensity.compact,
+        _buildActionButton(
+          icon: Icons.edit_outlined,
+          onPressed: () => _onEditWallet(context),
         ),
         const SizedBox(width: AppTheme.paddingS),
-        IconButton(
-          icon: const Icon(
-            Icons.add_circle_outline,
-            color: Colors.white,
-            size: 20,
-          ),
-          onPressed: () {
-            // TODO: Implement add transaction functionality
-          },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-          visualDensity: VisualDensity.compact,
+        _buildActionButton(
+          icon: Icons.add_circle_outline,
+          onPressed: () => _onAddTransaction(context),
         ),
       ],
     );
   }
 
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(
+        icon,
+        color: Colors.white,
+        size: 20,
+      ),
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  void _onEditWallet(BuildContext context) {
+    // TODO: Implement wallet edit functionality
+    // Navigator.of(context).push(
+    //   MaterialPageRoute(
+    //     builder: (_) => EditWalletScreen(wallet: wallet),
+    //   ),
+    // );
+  }
+
+  void _onAddTransaction(BuildContext context) {
+    // TODO: Implement add transaction functionality
+    // Navigator.of(context).push(
+    //   MaterialPageRoute(
+    //     builder: (_) => AddTransactionScreen(initialWalletId: wallet.id),
+    //   ),
+    // );
+  }
+
   // Utility method to parse color
   Color _parseColor(String colorStr) {
     try {
-      return Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
+      if (colorStr.startsWith('#')) {
+        return Color(int.parse(colorStr.replaceFirst('#', '0xFF')));
+      } else if (colorStr.startsWith('0x')) {
+        return Color(int.parse(colorStr));
+      }
+      return Color(int.parse('0xFF$colorStr'));
     } catch (e) {
       return Colors.green; // Default color
     }

@@ -1,0 +1,59 @@
+// models/transaction_preview.dart
+
+class TransactionPreview {
+  final String date;
+  final String amount;
+  final String name;
+  final int type;
+  final String source;
+  bool selected; // Для выбора транзакций для импорта
+
+  TransactionPreview({
+    required this.date,
+    required this.amount,
+    required this.name,
+    required this.type,
+    required this.source,
+    this.selected = true, // По умолчанию все транзакции выбраны
+  });
+
+  // Создание объекта из JSON
+  factory TransactionPreview.fromJson(Map<String, dynamic> json) {
+    return TransactionPreview(
+      date: json['date'] as String,
+      amount: json['amount'] as String,
+      name: json['name'] as String,
+      type: json['type'] as int,
+      source: json['source'] as String,
+    );
+  }
+
+  // Преобразование объекта в JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'amount': amount,
+      'name': name,
+      'type': type,
+      'source': source,
+    };
+  }
+}
+
+// Класс для хранения предпросмотра выписки
+class StatementPreview {
+  final List<TransactionPreview> transactions;
+  String? filePath;
+  String? fileName;
+
+  StatementPreview({
+    required this.transactions,
+    this.filePath,
+    this.fileName,
+  });
+
+  // Получение только выбранных транзакций
+  List<TransactionPreview> get selectedTransactions {
+    return transactions.where((transaction) => transaction.selected).toList();
+  }
+}

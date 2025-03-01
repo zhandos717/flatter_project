@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
-import 'package:finance_app/providers/transaction_provider.dart';
-import 'package:finance_app/models/finance_transaction.dart';
 import 'package:finance_app/constants/category_icons.dart';
+import 'package:finance_app/models/finance_transaction.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/utils/formatters.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -156,7 +156,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             // Группируем транзакции по категориям
             Map<String, double> categoryAmounts = {};
             for (var tx in transactions) {
-              categoryAmounts.update(tx.category.name, (value) => value + tx.amount,
+              categoryAmounts.update(
+                  tx.category.name, (value) => value + tx.amount,
                   ifAbsent: () => tx.amount);
             }
 
@@ -390,7 +391,6 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     // Генерируем секции для пирога
     List<PieChartSectionData> sections = [];
-    int i = 0;
 
     for (var entry in displayCategories) {
       final category = entry.key;
@@ -419,8 +419,6 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           titlePositionPercentageOffset: 0.6,
         ),
       );
-
-      i++;
     }
 
     return Card(
@@ -644,7 +642,6 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
             SizedBox(height: AppTheme.paddingL),
-
           ],
         ),
       ),

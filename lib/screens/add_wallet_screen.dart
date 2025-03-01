@@ -1,10 +1,13 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../models/wallet.dart';
 import '../providers/wallet_provider.dart';
 import '../theme/app_theme.dart';
 
 class AddWalletScreen extends StatefulWidget {
-  final Map<String, dynamic>? wallet;
+  final Wallet? wallet;
 
   const AddWalletScreen({Key? key, this.wallet}) : super(key: key);
 
@@ -16,10 +19,15 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
+  final _desiredBalanceController = TextEditingController();
 
-  int _walletType = 1; // 1 - обычный кошелек, 2 - целевой кошелек
-  int? _selectedIcon;
+  int _walletType =
+      Wallet.OrdinaryType; // 1 - обычный кошелек, 2 - целевой кошелек
+  int? _selectedIcon = 1;
   Color _selectedColor = Colors.green;
+
+  String? _selectedImagePath;
+  String? _selectedImageName;
 
   // Предопределенные цвета кошельков
   final List<Color> _walletColors = [
@@ -53,12 +61,16 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
 
     // Заполняем поля данными, если редактируем существующий кошелек
     if (widget.wallet != null) {
-      _nameController.text = widget.wallet!['name'] ?? '';
-      _balanceController.text = widget.wallet!['balance']?.toString() ?? '0';
-      _walletType = int.parse(widget.wallet!['type']?.toString() ?? '1');
+      _nameController.text = widget.wallet!.name;
+      _balanceController.text = widget.wallet!.balance;
+      _walletType = widget.wallet!.typeAsInt;
+
+      if (widget.wallet!.desiredBalance != null) {
+        _desiredBalanceController.text = widget.wallet!.desiredBalance!;
+      }
 
       // Пытаемся восстановить цвет
-      final colorStr = widget.wallet!['color'] ?? '';
+      final colorStr = widget.wallet!.color;
       if (colorStr.isNotEmpty) {
         try {
           _selectedColor = Color(int.parse(colorStr.replaceAll('#', '0xFF')));
@@ -68,7 +80,9 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
       }
 
       // Пытаемся восстановить иконку
-      _selectedIcon = widget.wallet!['icon'] != null ? int.parse(widget.wallet!['icon'].toString()) : null;
+      if (widget.wallet!.icon != null) {
+        _selectedIcon = int.tryParse(widget.wallet!.icon!);
+      }
     }
   }
 
@@ -76,12 +90,37 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   void dispose() {
     _nameController.dispose();
     _balanceController.dispose();
+    _desiredBalanceController.dispose();
     super.dispose();
   }
 
   // Преобразование Color в строку hex
   String _colorToHex(Color color) {
     return '#${color.value.toRadixString(16).substring(2)}';
+  }
+
+  // Выбор изображения
+  Future<void> _pickImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedImagePath = result.files.single.path;
+          _selectedImageName = result.files.single.name;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка выбора изображения: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _saveWallet() async {
@@ -95,8 +134,12 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
 
     try {
       final name = _nameController.text;
-      final balance = double.tryParse(_balanceController.text) ?? 0;
       final colorHex = _colorToHex(_selectedColor);
+      final String? iconStr = _selectedIcon?.toString();
+
+      // Если это целевой кошелек, берем желаемый баланс
+      final String? desiredBalance =
+          _walletType == 2 ? _desiredBalanceController.text : null;
 
       bool success;
 
@@ -105,12 +148,21 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
         success = await walletProvider.addWallet(
           name,
           _walletType,
+          desiredBalance:
+              desiredBalance != null ? int.tryParse(desiredBalance) : null,
           color: colorHex,
-          icon: _selectedIcon,
+          icon: 1 + (_selectedIcon ?? 1),
         );
       } else {
-        // В реальном приложении здесь будет код для обновления кошелька
-        success = true;
+        // Обновляем существующий кошелек
+        success = await walletProvider.updateWallet(
+          widget.wallet!,
+          name: name,
+          desiredBalance: desiredBalance,
+          color: colorHex,
+          icon: iconStr,
+          filePath: _selectedImagePath,
+        );
       }
 
       setState(() {
@@ -146,7 +198,8 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.wallet == null ? 'Новый кошелек' : 'Редактировать кошелек'),
+        title: Text(
+            widget.wallet == null ? 'Новый кошелек' : 'Редактировать кошелек'),
       ),
       body: Form(
         key: _formKey,
@@ -168,8 +221,8 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                         title: 'Обычный',
                         subtitle: 'Для повседневных трат',
                         icon: Icons.account_balance_wallet,
-                        type: 1,
-                        isSelected: _walletType == 1,
+                        type: Wallet.OrdinaryType,
+                        isSelected: _walletType == Wallet.OrdinaryType,
                       ),
                     ),
                     Expanded(
@@ -177,8 +230,8 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                         title: 'Целевой',
                         subtitle: 'Для накоплений',
                         icon: Icons.savings,
-                        type: 2,
-                        isSelected: _walletType == 2,
+                        type: Wallet.TargetType,
+                        isSelected: _walletType == Wallet.TargetType,
                       ),
                     ),
                   ],
@@ -212,37 +265,55 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                       },
                     ),
 
-                    SizedBox(height: AppTheme.paddingM),
-
-                    // Текущий баланс
-                    TextFormField(
-                      controller: _balanceController,
-                      decoration: InputDecoration(
-                        labelText: 'Текущий баланс',
-                        prefixIcon: Icon(Icons.money),
+                    // При создании нового кошелька показываем поле для баланса
+                    if (widget.wallet == null) ...[
+                      SizedBox(height: AppTheme.paddingM),
+                      // Текущий баланс
+                      TextFormField(
+                        controller: _balanceController,
+                        decoration: InputDecoration(
+                          labelText: 'Текущий баланс',
+                          prefixIcon: Icon(Icons.money),
+                        ),
+                        keyboardType:
+                            TextInputType.numberWithOptions(decimal: true),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Пожалуйста, введите баланс';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Пожалуйста, введите корректное число';
+                          }
+                          return null;
+                        },
                       ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Пожалуйста, введите баланс';
-                        }
-                        if (double.tryParse(value) == null) {
-                          return 'Пожалуйста, введите корректное число';
-                        }
-                        return null;
-                      },
-                    ),
+                    ],
 
-                    if (_walletType == 2) ...[
+                    if (_walletType == Wallet.TargetType) ...[
                       SizedBox(height: AppTheme.paddingM),
 
                       // Желаемый баланс (для целевого кошелька)
                       TextFormField(
+                        controller: _desiredBalanceController,
                         decoration: InputDecoration(
                           labelText: 'Целевая сумма',
                           prefixIcon: Icon(Icons.flag),
                         ),
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        keyboardType:
+                            TextInputType.numberWithOptions(decimal: true),
+                        validator: (value) {
+                          if (_walletType == Wallet.TargetType &&
+                              (value == null || value.isEmpty)) {
+                            return 'Пожалуйста, укажите целевую сумму';
+                          }
+                          if (value != null &&
+                              value.isNotEmpty &&
+                              double.tryParse(value) == null) {
+                            return 'Пожалуйста, введите корректное число';
+                          }
+
+                          return null;
+                        },
                       ),
                     ],
                   ],
@@ -367,6 +438,92 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
                         );
                       }).toList(),
                     ),
+
+                    // Возможность загрузить изображение (только для обновления)
+                    if (widget.wallet != null) ...[
+                      SizedBox(height: AppTheme.paddingM),
+
+                      Text(
+                        'Изображение кошелька',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: AppTheme.paddingS),
+
+                      // Текущее изображение, если есть
+                      if (widget.wallet!.imagePath != null &&
+                          widget.wallet!.imagePath!.isNotEmpty) ...[
+                        Container(
+                          height: 100,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusS),
+                            image: DecorationImage(
+                              image: NetworkImage(widget.wallet!.imagePath!),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: AppTheme.paddingS),
+                      ],
+
+                      // Выбранное новое изображение
+                      if (_selectedImagePath != null) ...[
+                        Container(
+                          padding: EdgeInsets.all(AppTheme.paddingS),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusS),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.image,
+                                color: AppTheme.primaryColor,
+                              ),
+                              SizedBox(width: AppTheme.paddingS),
+                              Expanded(
+                                child: Text(
+                                  _selectedImageName ?? '',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.close,
+                                  color: Colors.grey[600],
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedImagePath = null;
+                                    _selectedImageName = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: AppTheme.paddingS),
+                      ],
+
+                      OutlinedButton.icon(
+                        onPressed: _pickImage,
+                        icon: Icon(Icons.upload),
+                        label: Text(_selectedImagePath == null
+                            ? 'Загрузить изображение'
+                            : 'Изменить изображение'),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -383,16 +540,18 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
               onPressed: _isLoading ? null : _saveWallet,
               icon: _isLoading
                   ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
                   : Icon(widget.wallet == null ? Icons.add : Icons.save),
               label: Text(
-                widget.wallet == null ? 'Создать кошелек' : 'Сохранить изменения',
+                widget.wallet == null
+                    ? 'Создать кошелек'
+                    : 'Сохранить изменения',
                 style: TextStyle(fontSize: 16),
               ),
             ),

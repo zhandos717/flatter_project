@@ -85,6 +85,10 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.settings),
               label: 'Настройки',
             ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Настройки',
+            ),
           ],
           currentIndex: _selectedIndex,
           selectedItemColor: Colors.blue,

@@ -1,9 +1,10 @@
 import 'dart:convert';
+
 import 'package:finance_app/models/category.dart';
+import 'package:finance_app/models/finance_transaction.dart';
+import 'package:finance_app/utils/environment_config.dart';
 import 'package:http/http.dart' as http;
-import '../models/finance_transaction.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/environment_config.dart';
 
 class ApiService {
   // Получение базового URL из конфигурации окружения
@@ -412,10 +413,39 @@ class ApiService {
   }
 
   // Получение кошельков
-  Future<List<Map<String, dynamic>>> getWallets(int type) async {
+  Future<List<Map<String, dynamic>>> getWallets({
+    Map<String, dynamic>? filters,
+  }) async {
     try {
       final headers = await _getHeaders();
-      final url = '$baseUrl/v1/wallet?type=$type';
+
+      // Начинаем строить URL
+      String url = '$baseUrl/v1/wallet';
+
+      // Создаем список параметров
+      List<String> queryParams = [];
+
+      // Добавляем все фильтры из карты, если они предоставлены
+      if (filters != null && filters.isNotEmpty) {
+        filters.forEach((key, value) {
+          if (value != null) {
+            // Обрабатываем разные типы значений
+            String paramValue;
+            if (value is bool) {
+              paramValue = value ? '1' : '0';
+            } else {
+              paramValue = value.toString();
+            }
+
+            queryParams.add('$key=$paramValue');
+          }
+        });
+      }
+
+      // Формируем финальный URL с параметрами
+      if (queryParams.isNotEmpty) {
+        url += '?' + queryParams.join('&');
+      }
 
       _logRequest('GET', url, headers);
 
@@ -481,7 +511,7 @@ class ApiService {
 
       _logResponse(response);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return {'success': true, 'wallet': data['data']};
       } else if (response.statusCode == 422) {
@@ -798,6 +828,7 @@ class ApiService {
       category: Category.fromMap(json['category'] ?? {'name': 'Без категории'}),
       type: transactionType,
       note: json['comment'],
+      walletId: json['wallet_id'],
     );
   }
 
@@ -812,19 +843,17 @@ class ApiService {
     };
   }
 
-  // Добавьте этот метод в класс ApiService
+// Модифицированные методы для работы с выписками
 
-  // Загрузка банковской выписки
-  Future<Map<String, dynamic>> uploadBankStatement(
+  Future<Map<String, dynamic>> previewBankStatement(
     String filePath,
     String fileName,
-    String fileType,
   ) async {
     try {
       final headers = await _getHeaders();
       headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
 
-      final url = '$baseUrl/v1/bank-statements/upload';
+      final url = '$baseUrl/v1/wallet-transactions/import/preview';
 
       var request = http.MultipartRequest('POST', Uri.parse(url));
 
@@ -838,7 +867,7 @@ class ApiService {
         filename: fileName,
       ));
 
-      _logRequest('POST', url, headers, 'File upload: $fileName ($fileType)');
+      _logRequest('POST', url, headers, 'File upload preview: $fileName');
 
       final streamedResponse =
           await request.send().timeout(EnvironmentConfig.apiTimeout);
@@ -848,7 +877,23 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return {'success': true, 'data': data['data']};
+
+        // Явное преобразование данных в List<Map<String, dynamic>>
+        List<Map<String, dynamic>> typedData = [];
+        if (data['data'] is List) {
+          for (var item in data['data']) {
+            if (item is Map) {
+              // Преобразуем Map<dynamic, dynamic> в Map<String, dynamic>
+              Map<String, dynamic> typedItem = {};
+              item.forEach((key, value) {
+                typedItem[key.toString()] = value;
+              });
+              typedData.add(typedItem);
+            }
+          }
+        }
+
+        return {'success': true, 'data': typedData};
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -864,15 +909,65 @@ class ApiService {
 
       return {
         'success': false,
-        'message': 'Ошибка загрузки банковской выписки'
+        'message': 'Ошибка предпросмотра банковской выписки'
       };
     } catch (e) {
-      print('Upload bank statement error: $e');
+      print('Preview bank statement error: $e');
       return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 
-  // Получение списка загруженных банковских выписок
+// Создание транзакций из предпросмотра выписки
+  Future<Map<String, dynamic>> createTransactionsFromStatement(
+    int walletId,
+    List<Map<String, dynamic>> transactions,
+  ) async {
+    try {
+      final headers = await _getHeaders();
+      final url = '$baseUrl/v1/wallet-transactions/import/create';
+
+      // Создаем данные для запроса
+      final Map<String, dynamic> payload = {
+        'wallet_id': walletId,
+        'transactions': transactions,
+      };
+
+      _logRequest('POST', url, headers, jsonEncode(payload));
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: jsonEncode(payload),
+          )
+          .timeout(EnvironmentConfig.apiTimeout);
+
+      _logResponse(response);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'data': data};
+      } else if (response.statusCode == 422) {
+        final data = jsonDecode(response.body);
+        String errorMessage = 'Ошибка валидации';
+        if (data['errors'] != null) {
+          List<String> errors = [];
+          (data['errors'] as Map<String, dynamic>).forEach((key, value) {
+            errors.add((value as List).join('. '));
+          });
+          errorMessage = errors.join('\n');
+        }
+        return {'success': false, 'message': errorMessage};
+      }
+
+      return {'success': false, 'message': 'Ошибка создания транзакций'};
+    } catch (e) {
+      print('Create transactions error: $e');
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
+    }
+  }
+
+// Получение списка загруженных банковских выписок
   Future<List<Map<String, dynamic>>> getBankStatements() async {
     try {
       final headers = await _getHeaders();
@@ -902,6 +997,80 @@ class ApiService {
     } catch (e) {
       print('Get bank statements error: $e');
       return [];
+    }
+  }
+
+  // Метод для обновления существующего кошелька
+  Future<Map<String, dynamic>> updateWallet(
+    int? walletId, {
+    String? name,
+    String? desiredBalance,
+    String? color,
+    String? icon,
+    String? filePath,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
+
+      final url = '$baseUrl/v1/wallet/$walletId';
+
+      var request = http.MultipartRequest('POST', Uri.parse(url));
+
+      // Добавляем заголовки
+      request.headers.addAll(headers);
+
+      // Добавляем поля, если они не null
+      if (name != null) {
+        request.fields['name'] = name;
+      }
+      if (desiredBalance != null) {
+        request.fields['desired_balance'] = desiredBalance;
+      }
+      if (color != null) {
+        request.fields['color'] = color;
+      }
+      if (icon != null) {
+        request.fields['icon'] = icon;
+      }
+
+      // Добавляем файл, если он указан
+      if (filePath != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'file',
+          filePath,
+          filename: filePath.split('/').last,
+        ));
+      }
+
+      _logRequest('POST', url, headers, 'Updating wallet: $walletId');
+
+      final streamedResponse =
+          await request.send().timeout(EnvironmentConfig.apiTimeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      _logResponse(response);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {'success': true, 'data': data};
+      } else if (response.statusCode == 422) {
+        final data = jsonDecode(response.body);
+        String errorMessage = 'Ошибка валидации';
+        if (data['errors'] != null) {
+          List<String> errors = [];
+          (data['errors'] as Map<String, dynamic>).forEach((key, value) {
+            errors.add((value as List).join('. '));
+          });
+          errorMessage = errors.join('\n');
+        }
+        return {'success': false, 'message': errorMessage};
+      }
+
+      return {'success': false, 'message': 'Ошибка обновления кошелька'};
+    } catch (e) {
+      print('Update wallet error: $e');
+      return {'success': false, 'message': 'Ошибка соединения: $e'};
     }
   }
 }

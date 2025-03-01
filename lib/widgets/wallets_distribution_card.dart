@@ -1,12 +1,12 @@
+import 'package:finance_app/models/wallet.dart';
+import 'package:finance_app/providers/wallet_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../providers/wallet_provider.dart';
-import '../../../theme/app_theme.dart';
-import '../../../utils/formatters.dart';
-
 class WalletsDistributionCard extends StatelessWidget {
-  const WalletsDistributionCard({Key? key}) : super(key: key);
+  const WalletsDistributionCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +23,9 @@ class WalletsDistributionCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppTheme.paddingM),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: wallets.map((wallet) =>
-                  _buildWalletDistributionItem(
-                      wallet,
-                      totalBalance
-                  ))
+              children: wallets
+                  .map((wallet) =>
+                      _buildWalletDistributionItem(wallet, totalBalance))
                   .toList(),
             ),
           ),
@@ -36,13 +34,10 @@ class WalletsDistributionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildWalletDistributionItem(
-      Map<String, dynamic> wallet,
-      double totalBalance
-      ) {
-    final name = wallet['name'] ?? 'Кошелек';
-    final balance = double.parse(wallet['balance'].toString());
-    final colorStr = wallet['color'] ?? '#4CAF50';
+  Widget _buildWalletDistributionItem(Wallet wallet, double totalBalance) {
+    final name = wallet.name;
+    final balance = double.parse(wallet.balance.toString());
+    final colorStr = wallet.color;
     final color = _parseColor(colorStr);
 
     // Рассчитываем процент от общей суммы
