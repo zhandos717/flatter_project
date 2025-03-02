@@ -30,6 +30,15 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     // Установка начальных дат в зависимости от выбранного диапазона
     _updateDateRange(_timeRange);
 
+    // Загрузка транзакций
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<TransactionProvider>(context, listen: false)
+          .fetchTransactions(
+        dateFrom: _startDate,
+        dateTo: _endDate,
+      );
+    });
+
     _tabController.addListener(() {
       setState(() {});
     });
@@ -65,6 +74,12 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           break;
       }
     });
+
+    // Загружаем транзакции при изменении временного диапазона
+    Provider.of<TransactionProvider>(context, listen: false).fetchTransactions(
+      dateFrom: _startDate,
+      dateTo: _endDate,
+    );
   }
 
   Future<void> _selectDateRange() async {
@@ -96,51 +111,59 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         _endDate = picked.end;
         _timeRange = 'custom';
       });
+
+      // Загружаем транзакции для выбранного диапазона
+      Provider.of<TransactionProvider>(context, listen: false)
+          .fetchTransactions(
+        dateFrom: _startDate,
+        dateTo: _endDate,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:
-          NestedScrollView(headerSliverBuilder: (context, innerBoxIsScrolled) {
-        return [
-          SliverAppBar(
-            floating: true,
-            snap: true,
-            forceElevated: innerBoxIsScrolled,
-            bottom: PreferredSize(
-              preferredSize: Size.fromHeight(18),
-              child: Container(
-                color: Theme.of(context).cardColor,
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorColor: _tabController.index == 0
-                      ? AppTheme.expenseColor
-                      : AppTheme.incomeColor,
-                  labelColor: _tabController.index == 0
-                      ? AppTheme.expenseColor
-                      : AppTheme.incomeColor,
-                  unselectedLabelColor: Colors.grey,
-                  tabs: [
-                    Tab(
-                      icon: Icon(Icons.arrow_downward, size: 16),
-                      text: 'Расходы',
-                      iconMargin: EdgeInsets.only(bottom: 2),
-                    ),
-                    Tab(
-                      icon: Icon(Icons.arrow_upward, size: 16),
-                      text: 'Доходы',
-                      iconMargin: EdgeInsets.only(bottom: 2),
-                    ),
-                  ],
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+          return [
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              forceElevated: innerBoxIsScrolled,
+              centerTitle: true,
+              bottom: PreferredSize(
+                preferredSize: Size.fromHeight(20),
+                child: Container(
+                  color: Theme.of(context).cardColor,
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: _tabController.index == 0
+                        ? AppTheme.expenseColor
+                        : AppTheme.incomeColor,
+                    labelColor: _tabController.index == 0
+                        ? AppTheme.expenseColor
+                        : AppTheme.incomeColor,
+                    unselectedLabelColor: Colors.grey,
+                    tabs: [
+                      Tab(
+                        icon: Icon(Icons.arrow_downward, size: 16),
+                        text: 'Расходы',
+                        iconMargin: EdgeInsets.only(bottom: 2),
+                      ),
+                      Tab(
+                        icon: Icon(Icons.arrow_upward, size: 16),
+                        text: 'Доходы',
+                        iconMargin: EdgeInsets.only(bottom: 2),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ];
-      }, body: SingleChildScrollView(
-        child: Consumer<TransactionProvider>(
+          ];
+        },
+        body: Consumer<TransactionProvider>(
           builder: (ctx, txProvider, _) {
             bool showExpenses = _tabController.index == 0;
             List<FinanceTransaction> transactions =
@@ -169,7 +192,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             double totalAmount =
                 transactions.fold(0, (sum, tx) => sum + tx.amount);
 
-            return Padding(
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(AppTheme.paddingM),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,16 +228,17 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   if (transactions.isEmpty)
                     _buildEmptyState(showExpenses)
                   else
-                    Expanded(
-                      child: _buildCategoryList(
-                          sortedCategories, totalAmount, showExpenses),
-                    ),
+                    _buildCategoryList(
+                        sortedCategories, totalAmount, showExpenses),
+
+                  // Добавим отступ внизу для лучшего отображения на телефонах
+                  SizedBox(height: 80),
                 ],
               ),
             );
           },
         ),
-      )),
+      ),
     );
   }
 
@@ -248,7 +272,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             : Colors.grey[300]!,
                       ),
                       backgroundColor: _timeRange == 'custom'
-                          ? AppTheme.primaryColor.withOpacity(0.1)
+                          ? AppTheme.primaryColor
                           : Colors.transparent,
                     ),
                     child: Text(
@@ -374,6 +398,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
   Widget _buildCategoryChart(List<MapEntry<String, double>> categories,
       double totalAmount, bool isExpense) {
+    // Проверяем, есть ли данные
+    if (categories.isEmpty) {
+      return SizedBox.shrink();
+    }
+
     // Если категорий слишком много, показываем только топ-5 и группируем остальные
     List<MapEntry<String, double>> displayCategories = [];
     double otherAmount = 0;
@@ -464,51 +493,49 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     List<MapEntry<String, double>> categories,
     double totalAmount,
   ) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: categories.map((entry) {
-          final category = entry.key;
-          final amount = entry.value;
-          final percent = totalAmount > 0 ? (amount / totalAmount * 100) : 0;
+    return ListView(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      children: categories.map((entry) {
+        final category = entry.key;
+        final amount = entry.value;
+        final percent = totalAmount > 0 ? (amount / totalAmount * 100) : 0;
 
-          Color color;
-          if (category == 'Другое') {
-            color = Colors.grey;
-          } else {
-            final categoryColor = CategoryIcons.categoryColors[category];
-            color = categoryColor ?? Colors.grey;
-          }
+        Color color;
+        if (category == 'Другое') {
+          color = Colors.grey;
+        } else {
+          final categoryColor = CategoryIcons.categoryColors[category];
+          color = categoryColor ?? Colors.grey;
+        }
 
-          return Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
+        return Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Row(
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
                 ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 

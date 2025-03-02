@@ -21,7 +21,7 @@ class _CreateWalletModalState extends State<CreateWalletModal> {
   final _nameController = TextEditingController();
 
   int _walletType = 1; // По умолчанию обычный кошелек
-  int? _desiredBalance;
+  String? _desiredBalance;
   Color _selectedColor = Colors.blue;
   int? _selectedIcon;
 
@@ -216,7 +216,7 @@ class _CreateWalletModalState extends State<CreateWalletModal> {
                         ),
                         onChanged: (value) {
                           setState(() {
-                            _desiredBalance = int.tryParse(value);
+                            _desiredBalance = value;
                           });
                         },
                         validator: (value) {

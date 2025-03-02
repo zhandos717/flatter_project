@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/utils/formatters.dart';
+import 'package:flutter/material.dart';
 
 class BalanceCardSimple extends StatelessWidget {
   final double balance;
@@ -24,18 +24,14 @@ class BalanceCardSimple extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.symmetric(
-            horizontal: AppTheme.paddingL,
-            vertical: AppTheme.paddingM
-        ),
+            horizontal: AppTheme.paddingL, vertical: AppTheme.paddingM),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusL),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              balance >= 0
-                  ? AppTheme.primaryColor
-                  : AppTheme.expenseColor,
+              balance >= 0 ? AppTheme.primaryColor : AppTheme.expenseColor,
               balance >= 0
                   ? AppTheme.primaryColor.withOpacity(0.7)
                   : AppTheme.expenseColor.withOpacity(0.7),
@@ -49,7 +45,7 @@ class BalanceCardSimple extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Текущий баланс',
+                  'Текущий баланс 1',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.white.withOpacity(0.9),
@@ -75,17 +71,9 @@ class BalanceCardSimple extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildBalanceInfoItem(
-                    context,
-                    'Доходы',
-                    income,
-                    Icons.arrow_upward
-                ),
+                    context, 'Доходы', income, Icons.arrow_upward),
                 _buildBalanceInfoItem(
-                    context,
-                    'Расходы',
-                    expense,
-                    Icons.arrow_downward
-                ),
+                    context, 'Расходы', expense, Icons.arrow_downward),
               ],
             ),
           ],
@@ -95,11 +83,11 @@ class BalanceCardSimple extends StatelessWidget {
   }
 
   Widget _buildBalanceInfoItem(
-      BuildContext context,
-      String title,
-      double amount,
-      IconData icon,
-      ) {
+    BuildContext context,
+    String title,
+    double amount,
+    IconData icon,
+  ) {
     return Row(
       children: [
         CircleAvatar(

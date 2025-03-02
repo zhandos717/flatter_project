@@ -2,7 +2,7 @@
 
 class TransactionPreview {
   final String date;
-  final String amount;
+  final int amount;
   final String name;
   final int type;
   final String source;
@@ -21,7 +21,7 @@ class TransactionPreview {
   factory TransactionPreview.fromJson(Map<String, dynamic> json) {
     return TransactionPreview(
       date: json['date'] as String,
-      amount: json['amount'] as String,
+      amount: double.parse(json['amount'].toString()).toInt(),
       name: json['name'] as String,
       type: json['type'] as int,
       source: json['source'] as String,
@@ -30,8 +30,18 @@ class TransactionPreview {
 
   // Преобразование объекта в JSON
   Map<String, dynamic> toJson() {
+    String formattedDate = date;
+    try {
+      final dateTime = DateTime.parse(date);
+      formattedDate =
+          '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
+          '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}:${dateTime.second.toString().padLeft(2, '0')}';
+    } catch (e) {
+      print('Ошибка преобразования даты: $e');
+    }
+
     return {
-      'date': date,
+      'date': formattedDate, // Вот здесь нужно использовать formattedDate
       'amount': amount,
       'name': name,
       'type': type,

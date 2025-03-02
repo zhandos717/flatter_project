@@ -9,7 +9,6 @@ import 'package:finance_app/widgets/color_picker_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 
 import 'add_wallet_screen.dart';
 
@@ -141,33 +140,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     final title = _titleController.text;
+    final transactionId = widget.transaction?.id ?? null;
     final amount = double.parse(_amountController.text);
+    final walletId = _selectedWalletId;
     final note = _noteController.text.isEmpty ? null : _noteController.text;
 
-    final transaction = FinanceTransaction(
-      id: widget.transaction?.id ?? Uuid().v4(),
-      title: title,
-      amount: amount,
-      date: _selectedDate,
-      category: Category(
-          id: _selectedCategoryId,
-          name: 'name',
-          type: 0,
-          icon: 1,
-          color: 'color'),
-      type: _transactionType,
-      note: note,
-      walletId: _selectedWalletId,
-    );
-
-    if (widget.transaction == null) {
+    if (transactionId != null) {
+      Provider.of<TransactionProvider>(context, listen: false)
+          .updateTransaction(
+              id: transactionId, name: title, amount: amount, comment: note);
+    } else if (widget.transaction == null && walletId != null) {
       // Добавить новую транзакцию
-      Provider.of<TransactionProvider>(context, listen: false)
-          .addTransaction(transaction);
-    } else {
-      // Обновить существующую транзакцию
-      Provider.of<TransactionProvider>(context, listen: false)
-          .updateTransaction(transaction);
+      Provider.of<TransactionProvider>(context, listen: false).addTransaction(
+          walletId: walletId,
+          amount: amount,
+          type: _transactionType == TransactionType.expense
+              ? 'expense'
+              : 'income',
+          date: _selectedDate,
+          name: title,
+          categoryId: _selectedCategoryId,
+          comment: note);
     }
 
     Navigator.of(context).pop();

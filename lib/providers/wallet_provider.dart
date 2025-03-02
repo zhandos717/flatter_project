@@ -14,9 +14,32 @@ class WalletProvider with ChangeNotifier {
 
   String? get error => _error;
 
+  Future<void> loadWallets(int type) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Создаем словарь со всеми фильтрами
+      Map<String, dynamic> filters = {};
+
+      // Добавляем основные фильтры, если они не null
+      filters['type'] = type;
+
+      final data = await _apiService.getWallets(filters: filters);
+
+      _wallets = data.map((item) => Wallet.fromJson(item)).toList();
+    } catch (e) {
+      _error = 'Ошибка: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
 // Получение кошельков с гибкими фильтрами
   Future<void> fetchWallets({
-    int? type,
+    required int type,
     String? name,
     bool? isActive,
     // Добавьте другие возможные параметры
@@ -31,7 +54,7 @@ class WalletProvider with ChangeNotifier {
       Map<String, dynamic> filters = {};
 
       // Добавляем основные фильтры, если они не null
-      if (type != null) filters['type'] = type;
+      filters['type'] = type;
       if (name != null) filters['name'] = name;
       if (isActive != null) filters['isActive'] = isActive;
 
@@ -59,7 +82,7 @@ class WalletProvider with ChangeNotifier {
   Future<bool> addWallet(
     String name,
     int type, {
-    int? desiredBalance,
+    String? desiredBalance,
     String? color,
     int? icon,
   }) async {
@@ -162,7 +185,7 @@ class WalletProvider with ChangeNotifier {
 
       if (result['success']) {
         // Перезагружаем кошельки, чтобы отобразить изменения
-        await fetchWallets();
+        await fetchWallets(type: Wallet.OrdinaryType);
         return true;
       } else {
         _error = result['message'] ?? 'Не удалось обновить кошелек';

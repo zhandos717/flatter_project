@@ -6,6 +6,8 @@ import 'package:finance_app/utils/environment_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/transaction_preview.dart';
+
 class ApiService {
   // Получение базового URL из конфигурации окружения
   String get baseUrl => EnvironmentConfig.baseApiUrl;
@@ -475,7 +477,7 @@ class ApiService {
 
   // Создание кошелька
   Future<Map<String, dynamic>> createWallet(String name, int type,
-      {int? desiredBalance, String? color, int? icon}) async {
+      {String? desiredBalance, String? color, int? icon}) async {
     try {
       final headers = await _getHeaders();
       headers.remove('Content-Type'); // Для multipart нужно убрать Content-Type
@@ -672,7 +674,7 @@ class ApiService {
   Future<Map<String, dynamic>> updateTransaction(
     int transactionId, {
     String? name,
-    int? amount,
+    double? amount,
     String? comment,
   }) async {
     try {
@@ -819,7 +821,7 @@ class ApiService {
             : TransactionType.expense;
 
     return FinanceTransaction(
-      id: json['id'].toString(),
+      id: json['id'],
       title: json['name'] ?? '',
       amount: json['amount'] is int
           ? json['amount'].toDouble()
@@ -845,7 +847,7 @@ class ApiService {
 
 // Модифицированные методы для работы с выписками
 
-  Future<Map<String, dynamic>> previewBankStatement(
+  Future<StatementPreview?> previewBankStatement(
     String filePath,
     String fileName,
   ) async {
@@ -878,8 +880,8 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // Явное преобразование данных в List<Map<String, dynamic>>
-        List<Map<String, dynamic>> typedData = [];
+        // Преобразуем данные в объекты TransactionPreview
+        List<TransactionPreview> transactions = [];
         if (data['data'] is List) {
           for (var item in data['data']) {
             if (item is Map) {
@@ -888,12 +890,19 @@ class ApiService {
               item.forEach((key, value) {
                 typedItem[key.toString()] = value;
               });
-              typedData.add(typedItem);
+
+              // Создаем объект TransactionPreview из данных
+              transactions.add(TransactionPreview.fromJson(typedItem));
             }
           }
         }
 
-        return {'success': true, 'data': typedData};
+        // Создаем и возвращаем объект StatementPreview
+        return StatementPreview(
+          transactions: transactions,
+          filePath: filePath,
+          fileName: fileName,
+        );
       } else if (response.statusCode == 422) {
         final data = jsonDecode(response.body);
         String errorMessage = 'Ошибка валидации';
@@ -904,16 +913,16 @@ class ApiService {
           });
           errorMessage = errors.join('\n');
         }
-        return {'success': false, 'message': errorMessage};
+        // Бросаем исключение с сообщением об ошибке
+        throw Exception(errorMessage);
+      } else {
+        // Бросаем общее исключение при других ошибках
+        throw Exception('Ошибка предпросмотра банковской выписки');
       }
-
-      return {
-        'success': false,
-        'message': 'Ошибка предпросмотра банковской выписки'
-      };
     } catch (e) {
       print('Preview bank statement error: $e');
-      return {'success': false, 'message': 'Ошибка соединения: $e'};
+      // Возвращаем null при ошибке, или можно бросить исключение выше
+      return null;
     }
   }
 
@@ -1071,6 +1080,31 @@ class ApiService {
     } catch (e) {
       print('Update wallet error: $e');
       return {'success': false, 'message': 'Ошибка соединения: $e'};
+    }
+  }
+
+  Future<bool> importTransactionsFromPreview(
+    int walletId,
+    StatementPreview preview,
+  ) async {
+    try {
+      final selectedTransactions = preview.selectedTransactions;
+      if (selectedTransactions.isEmpty) {
+        throw Exception('Нет выбранных транзакций для импорта');
+      }
+
+      // Преобразуем TransactionPreview в Map для отправки на сервер
+      final List<Map<String, dynamic>> transactionsToImport =
+          selectedTransactions.map((t) => t.toJson()).toList();
+
+      // Используем существующий метод createTransactionsFromStatement
+      final result =
+          await createTransactionsFromStatement(walletId, transactionsToImport);
+
+      return result['success'] == true;
+    } catch (e) {
+      print('Import transactions from preview error: $e');
+      return false;
     }
   }
 }

@@ -1,15 +1,15 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:finance_app/models/wallet.dart';
+import 'package:finance_app/providers/wallet_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/wallet.dart';
-import '../providers/wallet_provider.dart';
-import '../theme/app_theme.dart';
-
 class AddWalletScreen extends StatefulWidget {
   final Wallet? wallet;
+  final int? initialType; // Добавляем параметр для начального типа
 
-  const AddWalletScreen({Key? key, this.wallet}) : super(key: key);
+  const AddWalletScreen({super.key, this.wallet, this.initialType});
 
   @override
   _AddWalletScreenState createState() => _AddWalletScreenState();
@@ -58,6 +58,11 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Установка начального типа кошелька, если он был передан
+    if (widget.initialType != null && widget.wallet == null) {
+      _walletType = widget.initialType!;
+    }
 
     // Заполняем поля данными, если редактируем существующий кошелек
     if (widget.wallet != null) {
@@ -149,7 +154,7 @@ class _AddWalletScreenState extends State<AddWalletScreen> {
           name,
           _walletType,
           desiredBalance:
-              desiredBalance != null ? int.tryParse(desiredBalance) : null,
+              desiredBalance != null ? desiredBalance.toString() : null,
           color: colorHex,
           icon: 1 + (_selectedIcon ?? 1),
         );

@@ -6,10 +6,10 @@ class WalletTypeSelector extends StatelessWidget {
   final Function(int) onTypeChanged;
 
   const WalletTypeSelector({
-    Key? key,
+    super.key,
     required this.selectedType,
     required this.onTypeChanged,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +96,7 @@ class WalletTypeSelector extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color:
                       isSelected ? Colors.blue.shade100 : Colors.grey.shade100,
@@ -106,15 +106,15 @@ class WalletTypeSelector extends StatelessWidget {
                   icon,
                   color:
                       isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
-                  size: 32,
+                  size: 28,
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 12),
               Text(
                 title,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 16,
+                  fontSize: 15,
                   color:
                       isSelected ? Colors.blue.shade800 : Colors.grey.shade800,
                 ),

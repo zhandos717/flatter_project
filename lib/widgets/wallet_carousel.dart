@@ -1,10 +1,9 @@
 import 'package:finance_app/models/wallet.dart';
+import 'package:finance_app/providers/wallet_provider.dart';
+import 'package:finance_app/theme/app_theme.dart';
+import 'package:finance_app/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import '../../../providers/wallet_provider.dart';
-import '../../../theme/app_theme.dart';
-import '../../../utils/formatters.dart';
 
 class WalletCarousel extends StatelessWidget {
   const WalletCarousel({super.key});
@@ -67,7 +66,7 @@ class WalletCard extends StatelessWidget {
     final color = _parseColor(wallet.color ?? '#4CAF50');
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Card(
         elevation: isActive ? 4 : 2,
         shape: RoundedRectangleBorder(
@@ -129,7 +128,7 @@ class WalletCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
-            type == '1' ? 'Обычный' : 'Цель',
+            type == Wallet.OrdinaryType ? 'Обычный' : 'Цель',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,

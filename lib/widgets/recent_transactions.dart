@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:finance_app/constants/category_icons.dart';
 import 'package:finance_app/models/finance_transaction.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
-import 'package:finance_app/constants/category_icons.dart';
+import 'package:finance_app/screens/add_transaction_screen.dart';
 import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/utils/formatters.dart';
-import 'package:finance_app/screens/add_transaction_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 class RecentTransactions extends StatelessWidget {
   final int limit;
@@ -25,12 +25,12 @@ class RecentTransactions extends StatelessWidget {
         }
 
         // Берем только последние транзакции согласно лимиту
-        final transactions = txProvider.transactions
-            .take(limit)
-            .toList();
+        final transactions = txProvider.transactions.take(limit).toList();
 
         return Column(
-          children: transactions.map((tx) => _buildTransactionItem(context, tx)).toList(),
+          children: transactions
+              .map((tx) => _buildTransactionItem(context, tx))
+              .toList(),
         );
       },
     );

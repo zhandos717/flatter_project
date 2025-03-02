@@ -1,3 +1,4 @@
+import 'package:finance_app/models/wallet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,7 +32,7 @@ class WalletTab extends StatelessWidget {
   Widget _buildWalletsContent(
       BuildContext context, WalletProvider walletProvider) {
     return RefreshIndicator(
-      onRefresh: () => walletProvider.fetchWallets(),
+      onRefresh: () => walletProvider.fetchWallets(type: Wallet.OrdinaryType),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.paddingM),
         child: Column(
@@ -57,7 +58,7 @@ class WalletTab extends StatelessWidget {
           'Мои кошельки',
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        const SizedBox(height: AppTheme.paddingM),
+        const SizedBox(height: AppTheme.paddingXS),
         const WalletCarousel(),
         if (walletProvider.wallets.length > 1)
           _buildPageIndicators(context, walletProvider.wallets.length),
@@ -67,7 +68,7 @@ class WalletTab extends StatelessWidget {
 
   Widget _buildPageIndicators(BuildContext context, int count) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppTheme.paddingM),
+      padding: const EdgeInsets.symmetric(vertical: AppTheme.paddingXS),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(

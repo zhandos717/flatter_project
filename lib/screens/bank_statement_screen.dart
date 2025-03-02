@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:finance_app/models/transaction_preview.dart';
 import 'package:finance_app/models/wallet.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/providers/wallet_provider.dart';
@@ -17,16 +18,16 @@ class BankStatementScreen extends StatefulWidget {
 
 class _BankStatementScreenState extends State<BankStatementScreen> {
   final ApiService _apiService = ApiService();
-  bool _isUploading = false;
+  bool _isLoading = false;
   String? _error;
   String? _selectedFilePath;
   String? _selectedFileName;
 
   // Шаг процесса загрузки: 0 - выбор файла, 1 - предпросмотр, 2 - завершено
-  int _uploadStep = 0;
+  int _currentStep = 0;
 
   // Данные для предпросмотра
-  List<Map<String, dynamic>> _previewTransactions = [];
+  StatementPreview? _statementPreview;
 
   // Выбранный кошелек для импорта
   Wallet? _selectedWallet;
@@ -34,8 +35,17 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   @override
   void initState() {
     super.initState();
-    // Загружаем кошельки при инициализации
     _loadWallets();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Проверяем, если provider уже загружен и есть кошельки, выбираем первый
+    final walletProvider = Provider.of<WalletProvider>(context, listen: false);
+    if (walletProvider.wallets.isNotEmpty && _selectedWallet == null) {
+      _selectedWallet = walletProvider.wallets.first;
+    }
   }
 
   Future<void> _loadWallets() async {
@@ -43,8 +53,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
       if (walletProvider.wallets.isEmpty) {
-        await walletProvider
-            .fetchWallets(); // Загружаем обычные кошельки (тип 1)
+        await walletProvider.fetchWallets(
+            type: 1); // Загружаем обычные кошельки (тип 1)
       }
     } catch (e) {
       print('Error loading wallets: $e');
@@ -62,6 +72,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         setState(() {
           _selectedFilePath = result.files.single.path;
           _selectedFileName = result.files.single.name;
+          _error = null;
         });
       }
     } catch (e) {
@@ -81,138 +92,74 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     }
 
     setState(() {
-      _isUploading = true;
+      _isLoading = true;
       _error = null;
     });
 
     try {
-      final result = await _apiService.previewBankStatement(
+      final preview = await _apiService.previewBankStatement(
         _selectedFilePath!,
         _selectedFileName!,
       );
 
-      if (result['success']) {
-        // Проверяем, что data — это именно список
-        if (result['data'] is List) {
-          final List<dynamic> transactionsData = result['data'];
-
-          // Безопасно преобразуем элементы списка в Map<String, dynamic>
-          final updatedTransactions = transactionsData.map((item) {
-            // Начинаем с пустой Map<String, dynamic>
-            Map<String, dynamic> transaction = {};
-
-            // Если это Map, преобразуем каждый ключ в String
-            if (item is Map) {
-              item.forEach((key, value) {
-                // Ключ преобразуем в String
-                String stringKey = key.toString();
-
-                // Приводим значения к определенным типам, если знаем их структуру
-                if (stringKey == 'date') {
-                  transaction[stringKey] = value.toString();
-                } else if (stringKey == 'amount') {
-                  // Для суммы пытаемся сохранить числовой формат
-                  if (value is num) {
-                    transaction[stringKey] = value.toString();
-                  } else {
-                    transaction[stringKey] = value.toString();
-                  }
-                } else if (stringKey == 'type') {
-                  // Для типа, который должен быть int
-                  if (value is int) {
-                    transaction[stringKey] = value;
-                  } else {
-                    transaction[stringKey] =
-                        int.tryParse(value.toString()) ?? 0;
-                  }
-                } else {
-                  // Все остальные значения преобразуем в строки
-                  transaction[stringKey] = value?.toString() ?? '';
-                }
-              });
-
-              // Добавляем поле selected
-              transaction['selected'] = true;
-            }
-
-            return transaction;
-          }).toList();
-
-          setState(() {
-            _previewTransactions =
-                List<Map<String, dynamic>>.from(updatedTransactions);
-            _uploadStep = 1; // Переход к шагу предпросмотра
-            _isUploading = false;
-          });
-        } else {
-          setState(() {
-            _error = 'Некорректный формат данных от сервера';
-            _isUploading = false;
-          });
-        }
+      if (preview != null) {
+        setState(() {
+          _statementPreview = preview;
+          _currentStep = 1; // Переход к шагу предпросмотра
+        });
       } else {
         setState(() {
-          _error = result['message'] ?? 'Ошибка предпросмотра файла';
-          _isUploading = false;
+          _error = 'Не удалось получить предпросмотр банковской выписки';
         });
       }
     } catch (e) {
-      print('Ошибка при загрузке файла: $e');
       setState(() {
         _error = 'Ошибка при загрузке файла: $e';
-        _isUploading = false;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
   // Шаг 2: Создание транзакций из предпросмотра
   Future<void> _createTransactions() async {
-    if (_previewTransactions.isEmpty || _selectedWallet == null) {
+    if (_statementPreview == null ||
+        _statementPreview!.transactions.isEmpty ||
+        _selectedWallet == null) {
       setState(() {
-        _error = 'Выберите кошелек для импорта транзакций';
+        _error = 'Выберите кошелек и транзакции для импорта';
+      });
+      return;
+    }
+
+    final selectedTransactions = _statementPreview!.selectedTransactions;
+    if (selectedTransactions.isEmpty) {
+      setState(() {
+        _error = 'Выберите хотя бы одну транзакцию для импорта';
       });
       return;
     }
 
     setState(() {
-      _isUploading = true;
+      _isLoading = true;
       _error = null;
     });
 
     try {
-      // Фильтруем только выбранные транзакции
-      final selectedTransactions = _previewTransactions
-          .where((transaction) => transaction['selected'] == true)
-          .map((transaction) {
-        // Удаляем наш внутренний флаг selected перед отправкой на сервер
-        final Map<String, dynamic> apiTransaction = Map.from(transaction);
-        apiTransaction.remove('selected');
-        return apiTransaction;
-      }).toList();
-
-      if (selectedTransactions.isEmpty) {
-        setState(() {
-          _error = 'Выберите хотя бы одну транзакцию для импорта';
-          _isUploading = false;
-        });
-        return;
-      }
-
-      final walletId = _selectedWallet!.id;
-
-      final result = await _apiService.createTransactionsFromStatement(
-        walletId as int,
-        selectedTransactions,
+      final result = await _apiService.importTransactionsFromPreview(
+        _selectedWallet!.id!,
+        _statementPreview!,
       );
 
-      if (result['success']) {
+      if (result) {
         // Обновляем список транзакций, если загрузка успешна
         await Provider.of<TransactionProvider>(context, listen: false)
             .fetchTransactions();
 
         setState(() {
-          _uploadStep = 2; // Успешное завершение
-          _isUploading = false;
+          _currentStep = 2; // Успешное завершение
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -225,21 +172,21 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         // Через небольшую задержку сбрасываем состояние для нового импорта
         Future.delayed(Duration(seconds: 2), () {
           if (mounted) {
-            setState(() {
-              _resetUploadState();
-            });
+            _resetUploadState();
           }
         });
       } else {
         setState(() {
-          _error = result['message'] ?? 'Ошибка создания транзакций';
-          _isUploading = false;
+          _error = 'Ошибка импорта транзакций';
         });
       }
     } catch (e) {
       setState(() {
         _error = 'Ошибка при создании транзакций: $e';
-        _isUploading = false;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -249,9 +196,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     setState(() {
       _selectedFilePath = null;
       _selectedFileName = null;
-      _previewTransactions = [];
-      _selectedWallet = null;
-      _uploadStep = 0;
+      _statementPreview = null;
+      _currentStep = 0;
       _error = null;
     });
   }
@@ -259,15 +205,15 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
   // Изменение состояния выбора транзакции
   void _toggleTransactionSelection(int index, bool value) {
     setState(() {
-      _previewTransactions[index]['selected'] = value;
+      _statementPreview!.transactions[index].selected = value;
     });
   }
 
   // Выбор всех транзакций
   void _selectAllTransactions(bool value) {
     setState(() {
-      for (var transaction in _previewTransactions) {
-        transaction['selected'] = value;
+      for (var transaction in _statementPreview!.transactions) {
+        transaction.selected = value;
       }
     });
   }
@@ -284,7 +230,8 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     if (result == true) {
       // Если кошелек был создан, обновляем список
       await _loadWallets();
-      // Проверяем, загрузились ли кошельки и выбираем первый
+
+      // Проверяем, загрузились ли кошельки и выбираем первый, если еще не выбран
       final walletProvider =
           Provider.of<WalletProvider>(context, listen: false);
       if (walletProvider.wallets.isNotEmpty && _selectedWallet == null) {
@@ -302,25 +249,26 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         title: Text('Импорт транзакций'),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
-        child: Padding(
-          padding: EdgeInsets.all(AppTheme.paddingM),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Блок загрузки выписки
-              _buildUploadCard(),
-            ],
-          ),
-        ),
-      ),
+      body: _isLoading && _currentStep != 1
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: EdgeInsets.all(AppTheme.paddingM),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Блок загрузки выписки
+                    _buildCurrentStepWidget(),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
-  Widget _buildUploadCard() {
-    // В зависимости от текущего шага загрузки показываем соответствующий UI
-    switch (_uploadStep) {
+  Widget _buildCurrentStepWidget() {
+    switch (_currentStep) {
       case 0: // Шаг выбора файла
         return _buildFileSelectionStep();
       case 1: // Шаг предпросмотра транзакций
@@ -358,48 +306,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             SizedBox(height: AppTheme.paddingM),
 
             // Отображение выбранного файла
-            if (_selectedFilePath != null)
-              Container(
-                padding: EdgeInsets.all(AppTheme.paddingS),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusS),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.description,
-                      color: AppTheme.primaryColor,
-                    ),
-                    SizedBox(width: AppTheme.paddingS),
-                    Expanded(
-                      child: Text(
-                        _selectedFileName ?? '',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: Colors.grey[600],
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _selectedFilePath = null;
-                          _selectedFileName = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
+            if (_selectedFilePath != null) _buildSelectedFileIndicator(),
 
             SizedBox(height: AppTheme.paddingM),
 
@@ -415,15 +322,17 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                       foregroundColor: Colors.black,
                       elevation: 0,
                     ),
-                    onPressed: _isUploading ? null : _selectFile,
+                    onPressed: _isLoading ? null : _selectFile,
                   ),
                 ),
                 SizedBox(width: AppTheme.paddingM),
                 Expanded(
                   child: ElevatedButton.icon(
                     icon: Icon(Icons.visibility),
-                    label: Text(_isUploading ? 'Загрузка...' : 'Предпросмотр'),
-                    onPressed: _isUploading ? null : _previewFile,
+                    label: Text(_isLoading ? 'Загрузка...' : 'Предпросмотр'),
+                    onPressed: _isLoading || _selectedFilePath == null
+                        ? null
+                        : _previewFile,
                   ),
                 ),
               ],
@@ -437,9 +346,53 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     );
   }
 
+  Widget _buildSelectedFileIndicator() {
+    return Container(
+      padding: EdgeInsets.all(AppTheme.paddingS),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
+        border: Border.all(
+          color: AppTheme.primaryColor.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.description,
+            color: AppTheme.primaryColor,
+          ),
+          SizedBox(width: AppTheme.paddingS),
+          Expanded(
+            child: Text(
+              _selectedFileName ?? '',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.close,
+              color: Colors.grey[600],
+              size: 20,
+            ),
+            onPressed: () {
+              setState(() {
+                _selectedFilePath = null;
+                _selectedFileName = null;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // Шаг 1: Предпросмотр и выбор транзакций
   Widget _buildPreviewStep() {
-    if (_previewTransactions.isEmpty) {
+    if (_statementPreview == null || _statementPreview!.transactions.isEmpty) {
       return Card(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusM),
@@ -464,15 +417,10 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
     }
 
     // Вычисление количества выбранных транзакций и общей суммы
-    final selectedCount = _previewTransactions
-        .where((transaction) => transaction['selected'] == true)
-        .length;
-
-    final totalAmount = _previewTransactions
-        .where((transaction) => transaction['selected'] == true)
-        .fold(0.0, (total, transaction) {
-      return total + double.parse(transaction['amount'].toString());
-    });
+    final selectedCount = _statementPreview!.selectedTransactions.length;
+    final totalAmount = _statementPreview!.selectedTransactions
+        .fold(0.0, (total, transaction) => total + transaction.amount);
+    final totalTransactions = _statementPreview!.transactions.length;
 
     return Card(
       shape: RoundedRectangleBorder(
@@ -484,40 +432,13 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Заголовок с информацией о файле
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Предпросмотр выписки',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.close),
-                  onPressed: _resetUploadState,
-                  tooltip: 'Отменить и вернуться к выбору файла',
-                ),
-              ],
-            ),
-
-            // Информация о выбранном файле
-            if (_selectedFileName != null)
-              Padding(
-                padding: EdgeInsets.only(bottom: AppTheme.paddingS),
-                child: Text(
-                  'Файл: $_selectedFileName',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ),
+            _buildPreviewHeader(),
 
             // Информация о количестве найденных транзакций
             Padding(
               padding: EdgeInsets.only(bottom: AppTheme.paddingM),
               child: Text(
-                'Найдено ${_previewTransactions.length} транзакций',
+                'Найдено $totalTransactions транзакций',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
@@ -526,236 +447,262 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             ),
 
             // Выбор кошелька для импорта
-            Padding(
-              padding: EdgeInsets.only(bottom: AppTheme.paddingM),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Выберите кошелек для импорта:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: AppTheme.paddingS),
-                  Consumer<WalletProvider>(
-                    builder: (context, walletProvider, child) {
-                      final wallets = walletProvider
-                          .getWalletsByType(1); // Тип 1 - обычные кошельки
+            _buildWalletSelector(),
 
-                      if (walletProvider.isLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      if (wallets.isEmpty) {
-                        return Container(
-                          padding: EdgeInsets.all(AppTheme.paddingM),
-                          decoration: BoxDecoration(
-                            color: Colors.amber[50],
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusS),
-                            border: Border.all(color: Colors.amber[200]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.warning, color: Colors.amber[700]),
-                              SizedBox(width: AppTheme.paddingS),
-                              Expanded(
-                                child: Text(
-                                  'Сначала создайте кошелек',
-                                  style: TextStyle(color: Colors.amber[900]),
-                                ),
-                              ),
-                              TextButton(
-                                child: Text('Создать'),
-                                onPressed: _openAddWalletScreen,
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      return Column(
-                        children: [
-                          // Выпадающий список кошельков
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusS),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<Wallet>(
-                                value: _selectedWallet,
-                                isExpanded: true,
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: AppTheme.paddingM),
-                                borderRadius:
-                                    BorderRadius.circular(AppTheme.radiusS),
-                                hint: Text('Выберите кошелек'),
-                                onChanged: (Wallet? newValue) {
-                                  if (newValue != null) {
-                                    setState(() {
-                                      _selectedWallet = newValue;
-                                    });
-                                  }
-                                },
-                                items: wallets
-                                    .map<DropdownMenuItem<Wallet>>((wallet) {
-                                  // Получение цвета кошелька
-                                  String colorStr = wallet.color;
-                                  // Если цвет начинается с #, преобразуем его в формат 0xFF...
-                                  if (colorStr.startsWith('#')) {
-                                    colorStr = '0xFF${colorStr.substring(1)}';
-                                  }
-
-                                  Color walletColor;
-                                  try {
-                                    walletColor = Color(int.parse(colorStr));
-                                  } catch (e) {
-                                    walletColor = Colors.grey;
-                                  }
-
-                                  return DropdownMenuItem<Wallet>(
-                                    value: wallet,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: walletColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                        ),
-                                        SizedBox(width: AppTheme.paddingS),
-                                        Text(wallet.name),
-                                        SizedBox(width: AppTheme.paddingS),
-                                        Text(
-                                          wallet.balanceAsDouble
-                                              .toStringAsFixed(2),
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-
-                          // Кнопка "Создать новый кошелек"
-                          Padding(
-                            padding: EdgeInsets.only(top: AppTheme.paddingS),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: _openAddWalletScreen,
-                                icon: Icon(Icons.add, size: 16),
-                                label: Text('Создать новый'),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: AppTheme.paddingS),
-                                  minimumSize: Size(0, 30),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Чекбокс "Выбрать все"
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: AppTheme.paddingS),
-              child: Row(
-                children: [
-                  Checkbox(
-                    value: _previewTransactions
-                        .every((t) => t['selected'] == true),
-                    onChanged: (value) {
-                      _selectAllTransactions(value ?? true);
-                    },
-                  ),
-                  Text('Выбрать все транзакции'),
-                  Spacer(),
-                  Text(
-                    'Выбрано: $selectedCount из ${_previewTransactions.length}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Общая сумма выбранных транзакций
-            Padding(
-              padding: EdgeInsets.only(
-                left: AppTheme.paddingM,
-                bottom: AppTheme.paddingM,
-              ),
-              child: Text(
-                'Общая сумма: ${totalAmount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: totalAmount >= 0 ? Colors.green : Colors.red,
-                ),
-              ),
-            ),
+            // Чекбокс "Выбрать все" и информация о выбранных транзакциях
+            _buildSelectionControls(
+                selectedCount, totalTransactions, totalAmount),
 
             // Список транзакций для предпросмотра
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(AppTheme.radiusS),
-              ),
-              height: 300, // Фиксированная высота для списка
-              child: ListView.builder(
-                itemCount: _previewTransactions.length,
-                itemBuilder: (context, index) {
-                  final transaction = _previewTransactions[index];
-                  return _buildTransactionPreviewItem(transaction, index);
-                },
-              ),
-            ),
+            _buildTransactionsList(),
 
             SizedBox(height: AppTheme.paddingM),
 
             // Кнопки для управления импортом
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _resetUploadState,
-                    child: Text('Отмена'),
-                  ),
-                ),
-                SizedBox(width: AppTheme.paddingM),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(Icons.save),
-                    label: Text(_isUploading ? 'Импорт...' : 'Импортировать'),
-                    onPressed: _isUploading ? null : _createTransactions,
-                  ),
-                ),
-              ],
-            ),
+            _buildActionButtons(),
 
             // Отображение ошибки
             if (_error != null) _buildErrorMessage(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPreviewHeader() {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Предпросмотр выписки',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
+        IconButton(
+          icon: Icon(Icons.close),
+          onPressed: _resetUploadState,
+          tooltip: 'Отменить и вернуться к выбору файла',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalletSelector() {
+    return Padding(
+      padding: EdgeInsets.only(bottom: AppTheme.paddingM),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Выберите кошелек для импорта:',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: AppTheme.paddingS),
+          Consumer<WalletProvider>(
+            builder: (context, walletProvider, child) {
+              final wallets = walletProvider.getWalletsByType(1);
+
+              if (walletProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (wallets.isEmpty) {
+                return _buildNoWalletsWarning();
+              }
+
+              return _buildWalletDropdown(wallets);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoWalletsWarning() {
+    return Container(
+      padding: EdgeInsets.all(AppTheme.paddingM),
+      decoration: BoxDecoration(
+        color: Colors.amber[50],
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
+        border: Border.all(color: Colors.amber[200]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning, color: Colors.amber[700]),
+          SizedBox(width: AppTheme.paddingS),
+          Expanded(
+            child: Text(
+              'Сначала создайте кошелек',
+              style: TextStyle(color: Colors.amber[900]),
+            ),
+          ),
+          TextButton(
+            child: Text('Создать'),
+            onPressed: _openAddWalletScreen,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWalletDropdown(List<Wallet> wallets) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(AppTheme.radiusS),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Wallet>(
+              value: _selectedWallet,
+              isExpanded: true,
+              padding: EdgeInsets.symmetric(horizontal: AppTheme.paddingM),
+              borderRadius: BorderRadius.circular(AppTheme.radiusS),
+              hint: Text('Выберите кошелек'),
+              onChanged: (Wallet? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedWallet = newValue;
+                  });
+                }
+              },
+              items: wallets.map<DropdownMenuItem<Wallet>>((wallet) {
+                Color walletColor = _parseWalletColor(wallet.color);
+
+                return DropdownMenuItem<Wallet>(
+                  value: wallet,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: walletColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: AppTheme.paddingS),
+                      Text(wallet.name),
+                      SizedBox(width: AppTheme.paddingS),
+                      Text(
+                        wallet.balanceAsDouble.toStringAsFixed(2),
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+
+        // Кнопка "Создать новый кошелек"
+        Padding(
+          padding: EdgeInsets.only(top: AppTheme.paddingS),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _openAddWalletScreen,
+              icon: Icon(Icons.add, size: 16),
+              label: Text('Создать новый'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: AppTheme.paddingS),
+                minimumSize: Size(0, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectionControls(
+      int selectedCount, int totalTransactions, double totalAmount) {
+    return Column(
+      children: [
+        // Чекбокс "Выбрать все"
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: AppTheme.paddingS),
+          child: Row(
+            children: [
+              Checkbox(
+                value: _statementPreview!.transactions.every((t) => t.selected),
+                onChanged: (value) {
+                  _selectAllTransactions(value ?? true);
+                },
+              ),
+              Text('Выбрать все транзакции'),
+              Spacer(),
+              Text(
+                'Выбрано: $selectedCount из $totalTransactions',
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Общая сумма выбранных транзакций
+        Padding(
+          padding: EdgeInsets.only(
+            left: AppTheme.paddingM,
+            bottom: AppTheme.paddingM,
+          ),
+          child: Text(
+            'Общая сумма: ${totalAmount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: totalAmount >= 0 ? Colors.green : Colors.red,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransactionsList() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(AppTheme.radiusS),
+      ),
+      height: 300, // Фиксированная высота для списка
+      child: ListView.builder(
+        itemCount: _statementPreview!.transactions.length,
+        itemBuilder: (context, index) {
+          final transaction = _statementPreview!.transactions[index];
+          return _buildTransactionPreviewItem(transaction, index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _resetUploadState,
+            child: Text('Отмена'),
+          ),
+        ),
+        SizedBox(width: AppTheme.paddingM),
+        Expanded(
+          child: ElevatedButton.icon(
+            icon: Icon(Icons.save),
+            label: Text(_isLoading ? 'Импорт...' : 'Импортировать'),
+            onPressed: _isLoading ? null : _createTransactions,
+          ),
+        ),
+      ],
     );
   }
 
@@ -797,16 +744,15 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
 
   // Элемент списка для предпросмотра транзакции
   Widget _buildTransactionPreviewItem(
-      Map<String, dynamic> transaction, int index) {
+      TransactionPreview transaction, int index) {
     // Форматирование даты (можно добавить более сложное форматирование)
-    String displayDate = transaction['date'].toString().split('T')[0];
+    String displayDate = transaction.date.split('T')[0];
 
     // Определение типа транзакции (расход/доход)
-    bool isExpense = transaction['type'] == 2;
-    String typeText = isExpense ? 'Расход' : 'Доход';
+    bool isExpense = transaction.type == 2;
     Color amountColor = isExpense ? Colors.red : Colors.green;
 
-    String amountText = '${isExpense ? '-' : '+'} ${transaction['amount']}';
+    String amountText = '${isExpense ? '-' : '+'} ${transaction.amount}';
 
     return Column(
       children: [
@@ -816,7 +762,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
             children: [
               // Чекбокс для выбора транзакции
               Checkbox(
-                value: transaction['selected'] ?? true,
+                value: transaction.selected,
                 onChanged: (value) {
                   _toggleTransactionSelection(index, value ?? false);
                 },
@@ -843,7 +789,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      transaction['name'],
+                      transaction.name,
                       style: TextStyle(
                         fontWeight: FontWeight.w500,
                       ),
@@ -851,7 +797,7 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      transaction['source'] ?? '',
+                      transaction.source,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -906,5 +852,19 @@ class _BankStatementScreenState extends State<BankStatementScreen> {
         ),
       ),
     );
+  }
+
+  // Утилиты
+  Color _parseWalletColor(String colorStr) {
+    try {
+      if (colorStr.startsWith('#')) {
+        return Color(int.parse('0xFF${colorStr.substring(1)}'));
+      } else if (colorStr.startsWith('0x')) {
+        return Color(int.parse(colorStr));
+      }
+      return Color(int.parse('0xFF$colorStr'));
+    } catch (e) {
+      return Colors.grey;
+    }
   }
 }

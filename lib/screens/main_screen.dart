@@ -24,7 +24,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = [
     MainHomeScreen(),
-    WalletScreen(),
+    WalletsScreen(),
     StatisticsScreen(),
     SettingsScreen(),
   ];
@@ -80,10 +80,6 @@ class _MainScreenState extends State<MainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart),
               label: 'Статистика',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings),
-              label: 'Настройки',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings),
